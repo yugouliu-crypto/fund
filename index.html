@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>三檔月配息基金循環轉換模擬器</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>月配息基金循環轉換模擬器</h1>
+  <p>摩根多重收益 → 安聯全球 → 聯博美國成長 循環轉換，配息可部分轉入安聯台灣科技基金 ｜ 資料區間：2024/06 ~ 2026/06（實際歷史淨值與配息）</p>
+</header>
+
+<div class="layout">
+  <div class="panel" id="controls">
+    <h2>參數設定</h2>
+
+    <div class="field">
+      <label>起始本金 (TWD) <span class="val" id="v-principal">1,000,000</span></label>
+      <input type="number" id="principal" value="1000000" step="10000" min="10000">
+    </div>
+
+    <div class="field">
+      <label>匯率 (USD/TWD，全程固定) <span class="val" id="v-fx">31.5</span></label>
+      <input type="range" id="fx" min="25" max="35" step="0.1" value="31.5">
+    </div>
+
+    <div class="field">
+      <label>配息轉出比例到安聯台灣科技 <span class="val" id="v-redirect">0%</span></label>
+      <input type="range" id="redirect" min="0" max="100" step="1" value="0">
+      <div class="hint">每筆配息中，這個比例會在除息當天換成台幣買進安聯台灣科技基金，留在那邊複利累積，不再參與三基金循環；剩下的部分維持現金留存。</div>
+    </div>
+
+    <div class="field">
+      <label>轉換延遲天數（除息日後第幾天送出申請） <span class="val" id="v-delay">0 天</span></label>
+      <input type="range" id="delay" min="0" max="14" step="1" value="0">
+      <div class="hint">模擬「沒有在除息隔天馬上轉換」的情況，例如業務繁忙晚了幾天才送出轉換申請。</div>
+    </div>
+
+    <div class="field">
+      <label>贖回款項日數（保單契約設定） <span class="val" id="v-settle">0 天</span></label>
+      <input type="range" id="settle" min="0" max="15" step="1" value="0">
+      <div class="hint">依保單條款附表四，海外基金轉出後還要等「贖回款項日數」才會真正轉入下一支基金，此天數因基金而異，公告於保險公司網站，請自行查詢後填入。</div>
+    </div>
+
+    <div class="field">
+      <div class="hint" style="margin-top:6px;border-top:1px solid #2e3a44;padding-top:10px;">
+        模型簡化假設：忽略保單管理費/保險成本/通路服務費；轉換費用依條款線上申請不計次數，視為0；不含海外所得稅負；匯率全程固定不變。
+      </div>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="warning-area"></div>
+
+    <div class="cards" id="cards"></div>
+
+    <div class="chart-wrap">
+      <canvas id="chart"></canvas>
+    </div>
+
+    <div class="section-title">配息轉出比例對照表（其餘參數依目前設定）</div>
+    <div class="table-scroll">
+      <table id="scenario-table">
+        <thead><tr><th>轉出比例</th><th>本金市值</th><th>科技基金市值</th><th>本金+科技</th><th>留存現金</th><th>總資產</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section-title">每月明細（本金市值 / 當月配息 / 累積現金 / 科技基金 / 總資產）</div>
+    <div class="table-scroll">
+      <table id="monthly-table">
+        <thead><tr><th>月份</th><th>持有基金</th><th>單位數</th><th>本金市值</th><th>當月配息</th><th>累積配息現金</th><th>科技基金市值</th><th>總資產</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section-title">轉換事件明細</div>
+    <div class="table-scroll">
+      <table id="log-table">
+        <thead><tr><th>#</th><th>持有基金</th><th>基準日</th><th>除息日</th><th>配息/單位</th><th>持有單位</th><th>配息(TWD)</th><th>轉出NAV</th><th>轉入基金</th><th>轉入NAV</th><th>新單位數</th><th>到位日</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<footer>
+  資料來源：MoneyDJ 基智網（聯博美國成長基金AP / 摩根多重收益基金A股 / 安聯全球永續發展基金AMg / 安聯台灣科技基金）歷史淨值與配息紀錄。本工具為歷史回測與情境模擬，不代表未來績效保證，請勿直接作為投資建議使用。
+</footer>
+
+<script src="data.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
