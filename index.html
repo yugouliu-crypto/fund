@@ -61,6 +61,26 @@
       <canvas id="chart"></canvas>
     </div>
 
+    <div class="section-title">策略比較：循環轉換 vs 單一持有（同樣的配息轉出比例設定，同一起止日，方便對照）</div>
+    <div class="table-scroll" style="margin-bottom:14px;">
+      <table id="compare-table">
+        <thead><tr><th>策略</th><th>期末本金市值</th><th>累計配息現金</th><th>安聯科技基金市值</th><th>本金+科技</th><th>總資產(含現金)</th><th>總報酬率</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="chart-wrap">
+      <div class="hint" style="margin-bottom:6px;">本金市值變化</div>
+      <canvas id="chart-cmp-principal" style="max-height:260px;"></canvas>
+    </div>
+    <div class="chart-wrap">
+      <div class="hint" style="margin-bottom:6px;">累計配息現金變化（未轉出安聯科技的部分）</div>
+      <canvas id="chart-cmp-div" style="max-height:260px;"></canvas>
+    </div>
+    <div class="chart-wrap">
+      <div class="hint" style="margin-bottom:6px;">總資產變化（本金+安聯科技基金+累計配息現金）</div>
+      <canvas id="chart-cmp-total" style="max-height:260px;"></canvas>
+    </div>
+
     <div class="section-title">配息轉出比例對照表（其餘參數依目前設定）</div>
     <div class="table-scroll">
       <table id="scenario-table">

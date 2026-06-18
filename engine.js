@@ -30,9 +30,12 @@ function navAt(navList, idx) {
 }
 
 // ---- core rotation + redirect simulation ----
-// params: { principalTWD, fx, switchDelayDays, settlementDays, redirectPct (0-1), startDate?, endDate? }
+// params: { principalTWD, fx, switchDelayDays, settlementDays, redirectPct (0-1), startDate?, endDate?, order? }
+// order: which funds to cycle through, in sequence (default = the 3-fund rotation).
+// Pass a single-element array (e.g. ["JFZN3"]) to model "just buy and hold one fund".
 function simulate(params) {
-  const { FUNDS, TECH, ORDER } = FUND_DATA;
+  const { FUNDS, TECH } = FUND_DATA;
+  const ORDER = params.order || FUND_DATA.ORDER;
   const fx = params.fx;
   const switchDelayDays = params.switchDelayDays || 0;
   const settlementDays = params.settlementDays || 0;
@@ -91,12 +94,16 @@ function simulate(params) {
     const newUnits = usdValue / nin.nav;
 
     // missed-dividend check: did next fund's basis date already pass before we actually landed?
-    const nf = FUNDS[nextFundCode];
-    const nfNextDiv = nf.div.find(d => d.basis >= entryDate);
+    // (only meaningful when actually rotating into a different fund; "buy and hold" single-fund
+    // mode has no switch to miss.)
     let missedThisLeg = false;
-    if (nfNextDiv && nfNextDiv.basis < nin.date) {
-      missedThisLeg = true;
-      missedCount++;
+    if (ORDER.length > 1) {
+      const nf = FUNDS[nextFundCode];
+      const nfNextDiv = nf.div.find(d => d.basis >= entryDate);
+      if (nfNextDiv && nfNextDiv.basis < nin.date) {
+        missedThisLeg = true;
+        missedCount++;
+      }
     }
 
     segments.push({ fund: curFund, startDate: entryDate, endDate: out.date, units });

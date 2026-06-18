@@ -7,6 +7,13 @@ function fmtPct(n) {
 }
 
 let chart = null;
+let cmpCharts = { principal: null, div: null, total: null };
+
+const STRATEGIES = [
+  { key: "rotate", label: "循環轉換(三基金)", order: FUND_DATA.ORDER, color: "#4fb3ff" },
+  { key: "jfzn3", label: "只放摩根多重收益", order: ["JFZN3"], color: "#ffb454" },
+  { key: "albt8", label: "只放聯博美國成長", order: ["ALBT8"], color: "#3ddc97" },
+];
 
 function getParams() {
   return {
@@ -141,6 +148,74 @@ function renderScenarioTable(baseParams) {
     </tr>`).join("");
 }
 
+function computeComparison(baseParams) {
+  // force every strategy onto the same start/end window so they're directly comparable
+  const rotateBounds = simulate({ ...baseParams, order: FUND_DATA.ORDER });
+  const startDate = rotateBounds.startDate;
+  const endDate = rotateBounds.endDate;
+  return STRATEGIES.map(s => ({
+    ...s,
+    result: simulate({ ...baseParams, order: s.order, startDate, endDate }),
+  }));
+}
+
+function renderCompareTable(strategies, principalTWD) {
+  const tbody = document.querySelector("#compare-table tbody");
+  tbody.innerHTML = strategies.map(s => {
+    const r = s.result;
+    const totalReturn = r.totalTWD / principalTWD - 1;
+    return `<tr>
+      <td style="text-align:left;">${s.label}</td>
+      <td>${fmtTWD(r.finalPrincipalTWD)}</td>
+      <td>${fmtTWD(r.cashCumTWD)}</td>
+      <td>${fmtTWD(r.finalTechTWD)}</td>
+      <td>${fmtTWD(r.investedOnlyTWD)}</td>
+      <td>${fmtTWD(r.totalTWD)}</td>
+      <td class="${totalReturn >= 0 ? "pos" : "neg"}">${fmtPct(totalReturn)}</td>
+    </tr>`;
+  }).join("");
+}
+
+function lineDataset(s, field) {
+  return {
+    label: s.label,
+    data: s.result.monthly.map(m => m[field]),
+    borderColor: s.color,
+    backgroundColor: "transparent",
+    tension: 0.15,
+  };
+}
+
+function renderCompareChart(canvasId, key, field, strategies) {
+  const labels = strategies[0].result.monthly.map(m => m.month);
+  const ctx = document.getElementById(canvasId).getContext("2d");
+  if (cmpCharts[key]) cmpCharts[key].destroy();
+  cmpCharts[key] = new Chart(ctx, {
+    type: "line",
+    data: { labels, datasets: strategies.map(s => lineDataset(s, field)) },
+    options: {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      scales: {
+        x: { ticks: { color: "#93a3b0" }, grid: { color: "#2e3a44" } },
+        y: { ticks: { color: "#93a3b0", callback: v => (v / 10000) + "萬" }, grid: { color: "#2e3a44" } },
+      },
+      plugins: {
+        legend: { labels: { color: "#e8edf2" } },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtTWD(ctx.parsed.y)}` } },
+      },
+    },
+  });
+}
+
+function renderComparison(baseParams) {
+  const strategies = computeComparison(baseParams);
+  renderCompareTable(strategies, baseParams.principalTWD);
+  renderCompareChart("chart-cmp-principal", "principal", "principalTWD", strategies);
+  renderCompareChart("chart-cmp-div", "div", "cashCumTWD", strategies);
+  renderCompareChart("chart-cmp-total", "total", "totalTWD", strategies);
+}
+
 function render() {
   const params = getParams();
   document.getElementById("v-principal").textContent = Math.round(params.principalTWD).toLocaleString();
@@ -155,6 +230,7 @@ function render() {
   renderChart(r, params.principalTWD);
   renderMonthly(r);
   renderLog(r);
+  renderComparison(params);
   renderScenarioTable(params);
 }
 
