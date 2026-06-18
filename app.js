@@ -10,9 +10,13 @@ let chart = null;
 let cmpCharts = { principal: null, div: null, total: null };
 
 const STRATEGIES = [
-  { key: "rotate", label: "循環轉換(三基金)", order: FUND_DATA.ORDER, color: "#4fb3ff" },
+  { key: "rotate", label: "循環轉換(三基金：摩根→安聯→聯博)", order: FUND_DATA.ORDER, color: "#4fb3ff" },
   { key: "jfzn3", label: "只放摩根多重收益", order: ["JFZN3"], color: "#ffb454" },
   { key: "albt8", label: "只放聯博美國成長", order: ["ALBT8"], color: "#3ddc97" },
+  { key: "tlzn0", label: "只放安聯全球", order: ["TLZN0"], color: "#f97316" },
+  { key: "two_jt", label: "兩基金循環：摩根↔安聯（拿掉聯博）", order: ["JFZN3", "TLZN0"], color: "#c084fc" },
+  { key: "two_ja", label: "兩基金循環：摩根↔聯博（拿掉安聯，避開最緊的轉換腿）", order: ["JFZN3", "ALBT8"], color: "#f43f5e" },
+  { key: "two_ta", label: "兩基金循環：安聯↔聯博（拿掉摩根）", order: ["TLZN0", "ALBT8"], color: "#22d3ee" },
 ];
 
 // Recursive "borrow up to capPct of account value, reinvest, borrow again" cascade.
