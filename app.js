@@ -15,17 +15,53 @@ const STRATEGIES = [
   { key: "albt8", label: "只放聯博美國成長", order: ["ALBT8"], color: "#3ddc97" },
 ];
 
+// Recursive "borrow up to capPct of account value, reinvest, borrow again" cascade.
+// Converges to investedTotal = principal/(1-capPct). Returns the step-by-step tranches too.
+function cascadeLoan(principalTWD, capPct) {
+  let accountValue = principalTWD;
+  let totalLoan = 0;
+  const tranches = [];
+  for (let i = 0; i < 40; i++) {
+    const cap = accountValue * capPct;
+    const additional = cap - totalLoan;
+    if (additional < 1000) break; // not worth another round
+    totalLoan += additional;
+    accountValue += additional;
+    tranches.push({ step: i + 1, amount: additional, cumLoan: totalLoan, accountValue });
+  }
+  return { totalLoan, accountValue, tranches };
+}
+
 function getParams() {
   const loanEnabled = document.getElementById("loanEnabled").checked;
+  const loanMode = document.getElementById("loanModeCascade").checked ? "cascade" : "fixed";
+  const principalTWD = parseFloat(document.getElementById("principal").value) || 1000000;
+  let loanAmt = 0;
+  let cascadeInfo = null;
+  if (loanEnabled) {
+    if (loanMode === "fixed") {
+      loanAmt = parseFloat(document.getElementById("loanAmt").value) || 0;
+    } else {
+      const capPct = parseFloat(document.getElementById("loanCapPct").value) / 100;
+      cascadeInfo = cascadeLoan(principalTWD, capPct);
+      loanAmt = cascadeInfo.totalLoan;
+    }
+  }
+  const crashGuardEnabled = document.getElementById("crashGuardEnabled").checked;
   return {
-    principalTWD: parseFloat(document.getElementById("principal").value) || 1000000,
+    principalTWD,
+    monthlyTarget: parseFloat(document.getElementById("monthlyTarget").value) || 0,
     fx: parseFloat(document.getElementById("fx").value),
     redirectPct: parseFloat(document.getElementById("redirect").value) / 100,
     switchDelayDays: parseInt(document.getElementById("delay").value),
     settlementDays: parseInt(document.getElementById("settle").value),
-    loanEnabled,
-    loanAmt: loanEnabled ? (parseFloat(document.getElementById("loanAmt").value) || 0) : 0,
+    loanEnabled, loanMode, loanAmt, cascadeInfo,
     loanRate: parseFloat(document.getElementById("loanRate").value) / 100,
+    crashGuard: {
+      enabled: crashGuardEnabled,
+      dropPct: parseFloat(document.getElementById("crashDrop").value) / 100,
+      lookbackDays: parseInt(document.getElementById("crashLookback").value),
+    },
   };
 }
 
@@ -56,6 +92,17 @@ function renderCards(r, principalTWD, params) {
       { label: `保單貸款本息（借${fmtTWD(params.loanAmt)}，年息${(params.loanRate * 100).toFixed(2)}%）`, value: fmtTWD(loanBal), sub: `利息累積 ${fmtTWD(loanBal - params.loanAmt)}` },
       { label: "淨值（總資產－貸款本息）vs 自己出的本金", value: fmtTWD(netWorth), sub: fmtPct(netReturn), subClass: netReturn >= 0 ? "pos" : "neg" },
     );
+  }
+  if (params.monthlyTarget != null) {
+    const numMonths = r.monthly.length;
+    const avgMonthly = r.cashCumTWD / numMonths;
+    const gap = avgMonthly - params.monthlyTarget;
+    cards.push({
+      label: `平均每月配息現金 vs 目標 ${fmtTWD(params.monthlyTarget)}/月`,
+      value: fmtTWD(avgMonthly),
+      sub: gap >= 0 ? `高於目標 ${fmtTWD(gap)}/月` : `低於目標 ${fmtTWD(-gap)}/月`,
+      subClass: gap >= 0 ? "pos" : "neg",
+    });
   }
   document.getElementById("cards").innerHTML = cards.map(c => `
     <div class="card">
@@ -252,13 +299,28 @@ function renderComparison(baseParams) {
 function render() {
   const params = getParams();
   document.getElementById("v-principal").textContent = Math.round(params.principalTWD).toLocaleString();
+  document.getElementById("v-monthlyTarget").textContent = Math.round(params.monthlyTarget).toLocaleString();
   document.getElementById("v-fx").textContent = params.fx.toFixed(1);
   document.getElementById("v-redirect").textContent = Math.round(params.redirectPct * 100) + "%";
   document.getElementById("v-delay").textContent = params.switchDelayDays + " 天";
   document.getElementById("v-settle").textContent = params.settlementDays + " 天";
   document.getElementById("v-loanAmt").textContent = Math.round(parseFloat(document.getElementById("loanAmt").value) || 0).toLocaleString();
   document.getElementById("v-loanRate").textContent = parseFloat(document.getElementById("loanRate").value).toFixed(2) + "%";
+  document.getElementById("v-loanCapPct").textContent = document.getElementById("loanCapPct").value + "%";
+  document.getElementById("v-crashDrop").textContent = document.getElementById("crashDrop").value + "%";
+  document.getElementById("v-crashLookback").textContent = document.getElementById("crashLookback").value + " 天";
+
   document.getElementById("loan-fields").style.display = params.loanEnabled ? "block" : "none";
+  document.getElementById("loanFixedFields").style.display = params.loanMode === "fixed" ? "block" : "none";
+  document.getElementById("loanCascadeFields").style.display = params.loanMode === "cascade" ? "block" : "none";
+  document.getElementById("crashGuard-fields").style.display = params.crashGuard.enabled ? "block" : "none";
+
+  if (params.cascadeInfo) {
+    const c = params.cascadeInfo;
+    document.getElementById("cascadeSummary").innerHTML =
+      `遞迴 ${c.tranches.length} 次後收斂：累計貸款 ${fmtTWD(c.totalLoan)}，投入總額 ${fmtTWD(c.accountValue)}` +
+      `（原始本金 ${fmtTWD(params.principalTWD)} 的 ${(c.accountValue / params.principalTWD).toFixed(2)} 倍）`;
+  }
 
   // the loan amount is invested through the same rotation strategy alongside the original principal
   const investParams = { ...params, principalTWD: params.principalTWD + params.loanAmt };
@@ -273,7 +335,11 @@ function render() {
   renderScenarioTable(investParams);
 }
 
-["principal", "fx", "redirect", "delay", "settle", "loanEnabled", "loanAmt", "loanRate"].forEach(id => {
+[
+  "principal", "monthlyTarget", "fx", "redirect", "delay", "settle",
+  "loanEnabled", "loanAmt", "loanRate", "loanModeFixed", "loanModeCascade", "loanCapPct",
+  "crashGuardEnabled", "crashDrop", "crashLookback",
+].forEach(id => {
   document.getElementById(id).addEventListener("input", render);
 });
 

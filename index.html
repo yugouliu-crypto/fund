@@ -23,6 +23,12 @@
     </div>
 
     <div class="field">
+      <label>每月需要的配息現金 (TWD) <span class="val" id="v-monthlyTarget">60,000</span></label>
+      <input type="number" id="monthlyTarget" value="60000" step="1000" min="0">
+      <div class="hint">用「累積配息現金÷模擬月數」當平均值跟這個目標比較，僅供參考，每月實際領到的金額會因為三基金循環跟月曆不對齊而有起伏（可以從下面每月明細表看到逐月波動）。</div>
+    </div>
+
+    <div class="field">
       <label>匯率 (USD/TWD，全程固定) <span class="val" id="v-fx">31.5</span></label>
       <input type="range" id="fx" min="25" max="35" step="0.1" value="31.5">
     </div>
@@ -49,14 +55,39 @@
       <label style="margin-bottom:10px;"><input type="checkbox" id="loanEnabled"> 啟用保單貸款（借錢加碼用同樣策略投入）</label>
       <div id="loan-fields" style="display:none;">
         <div style="margin-top:10px;">
+          <label><input type="radio" name="loanMode" id="loanModeFixed" value="fixed" checked> 固定金額</label>
+          &nbsp;&nbsp;
+          <label><input type="radio" name="loanMode" id="loanModeCascade" value="cascade"> 遞迴貸到上限</label>
+        </div>
+        <div id="loanFixedFields" style="margin-top:10px;">
           <label>貸款金額 (TWD) <span class="val" id="v-loanAmt">500,000</span></label>
           <input type="number" id="loanAmt" value="500000" step="10000" min="0">
+        </div>
+        <div id="loanCascadeFields" style="margin-top:10px;display:none;">
+          <label>每次貸款上限（佔帳戶價值%） <span class="val" id="v-loanCapPct">50%</span></label>
+          <input type="range" id="loanCapPct" min="10" max="50" step="1" value="50">
+          <div class="hint" id="cascadeSummary"></div>
         </div>
         <div style="margin-top:10px;">
           <label>貸款年利率 (%) <span class="val" id="v-loanRate">3.99%</span></label>
           <input type="range" id="loanRate" min="0" max="10" step="0.01" value="3.99">
         </div>
-        <div class="hint">借出的錢和原始本金一起併入同一套循環轉換策略（視為本金變成「原始本金+貸款金額」）；貸款本息另外用單利計算（本金×年利率×天數/365），從模擬第一天開始計息，不會自動展延或還款。</div>
+        <div class="hint">借出的錢和原始本金一起併入同一套循環轉換策略（視為本金變成「原始本金+貸款金額」）；貸款本息另外用單利計算（本金×年利率×天數/365），從模擬第一天開始計息，不會自動展延或還款。「遞迴貸到上限」模擬不限次數、每次借到當下帳戶價值上限%再投入、反覆操作直到借不出有意義金額為止（數學上收斂在「投入總額=本金/(1-上限%)」）。</div>
+      </div>
+    </div>
+
+    <div class="field" style="border-top:1px solid #2e3a44;padding-top:14px;">
+      <label style="margin-bottom:10px;"><input type="checkbox" id="crashGuardEnabled"> 大跌時暫緩轉換</label>
+      <div id="crashGuard-fields" style="display:none;">
+        <div style="margin-top:10px;">
+          <label>跌幅門檻 <span class="val" id="v-crashDrop">15%</span></label>
+          <input type="range" id="crashDrop" min="5" max="40" step="1" value="15">
+        </div>
+        <div style="margin-top:10px;">
+          <label>回顧天數 <span class="val" id="v-crashLookback">7 天</span></label>
+          <input type="range" id="crashLookback" min="1" max="30" step="1" value="7">
+        </div>
+        <div class="hint">沒有外部指數資料，這裡用「要轉出的那支基金自己」過去N天的淨值跌幅當判斷依據。觸發時會延後轉換、持續每天檢查，直到跌幅回到門檻內才執行。</div>
       </div>
     </div>
 

@@ -29,6 +29,32 @@ function navAt(navList, idx) {
   return { date: navList[idx][0], nav: navList[idx][1] };
 }
 
+// trailing drawdown of navList as of `iso`, looking back `lookbackDays` calendar days.
+// returns a negative fraction (e.g. -0.18 = down 18%) or null if not enough history.
+function trailingDrawdown(navList, iso, lookbackDays) {
+  const now = navOnOrBefore(navList, iso);
+  const past = navOnOrBefore(navList, addDaysISO(iso, -lookbackDays));
+  if (!now || !past || past.nav === 0) return null;
+  return now.nav / past.nav - 1;
+}
+
+// push targetDate forward day by day while the outgoing fund's trailing drawdown
+// breaches the crash-guard threshold, so we don't lock in a switch right after a crash.
+function applyCrashGuard(navList, targetDate, endDate, crashGuard) {
+  if (!crashGuard || !crashGuard.enabled) return { date: targetDate, postponedDays: 0 };
+  let d = targetDate;
+  let postponedDays = 0;
+  const maxIter = 120;
+  for (let i = 0; i < maxIter; i++) {
+    if (d > endDate) break;
+    const dd = trailingDrawdown(navList, d, crashGuard.lookbackDays);
+    if (dd == null || dd > -crashGuard.dropPct) break; // not in crash zone, ok to proceed
+    d = addDaysISO(d, 1);
+    postponedDays++;
+  }
+  return { date: d, postponedDays };
+}
+
 // ---- core rotation + redirect simulation ----
 // params: { principalTWD, fx, switchDelayDays, settlementDays, redirectPct (0-1), startDate?, endDate?, order? }
 // order: which funds to cycle through, in sequence (default = the 3-fund rotation).
@@ -62,6 +88,7 @@ function simulate(params) {
 
   const warnings = [];
   let missedCount = 0;
+  let crashGuardTriggers = 0;
 
   while (true) {
     const fund = FUNDS[curFund];
@@ -75,7 +102,10 @@ function simulate(params) {
     cashCumTWD += keptTWD;
 
     const requestDate = addDaysISO(nextDiv.exdiv, switchDelayDays);
-    const targetDate = addDaysISO(requestDate, settlementDays);
+    let targetDate = addDaysISO(requestDate, settlementDays);
+    const guardResult = applyCrashGuard(fund.nav, targetDate, endDate, params.crashGuard);
+    targetDate = guardResult.date;
+    if (guardResult.postponedDays > 0) crashGuardTriggers++;
 
     const out = navOnOrAfter(fund.nav, targetDate);
     if (!out) break; // ran past available data
@@ -113,6 +143,7 @@ function simulate(params) {
       keptTWD, redirectTWD: redirectUSD * fx, convertDate: out.date, navOut: out.nav,
       usdValue, nextFund: nextFundCode, nextFundName: FUNDS[nextFundCode].name,
       convertInDate: nin.date, navIn: nin.nav, newUnits, missedThisLeg,
+      crashGuardPostponedDays: guardResult.postponedDays,
     });
     events.push({ date: out.date, cashAddTWD: keptTWD, techAddUnits });
 
@@ -133,6 +164,9 @@ function simulate(params) {
   if (missedCount > 0) {
     warnings.push(`目前設定下，模擬期間內有 ${missedCount} 次轉換來不及趕上下一支基金的配息基準日（資金尚未到位，配息已截止認列），表示這套轉換節奏在現實中可能無法完整執行。`);
   }
+  if (crashGuardTriggers > 0) {
+    warnings.push(`大跌暫緩轉換規則共觸發 ${crashGuardTriggers} 次（轉換日因為跌幅過大而被延後）。`);
+  }
 
   // ---- monthly snapshot table ----
   const monthly = buildMonthly(segments, events, log, FUNDS, TECH, fx, startDate, endDate);
@@ -142,7 +176,7 @@ function simulate(params) {
     finalPrincipalTWD, cashCumTWD, finalTechTWD,
     totalTWD: finalPrincipalTWD + finalTechTWD + cashCumTWD,
     investedOnlyTWD: finalPrincipalTWD + finalTechTWD,
-    log, monthly, warnings, missedCount,
+    log, monthly, warnings, missedCount, crashGuardTriggers,
     techUnits, finalUnits: units, finalFund: curFund,
   };
 }
