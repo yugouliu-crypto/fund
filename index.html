@@ -34,9 +34,18 @@
     </div>
 
     <div class="field">
-      <label>配息轉出比例到安聯台灣科技 <span class="val" id="v-redirect">0%</span></label>
+      <label>配息轉出標的</label>
+      <div>
+        <label><input type="radio" name="redirectTarget" id="targetACDD04" value="ACDD04" checked> 安聯台灣科技</label>
+        &nbsp;&nbsp;
+        <label><input type="radio" name="redirectTarget" id="targetVOO" value="VOO"> VOO(S&P500)</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>配息轉出比例 <span class="val" id="v-redirect">0%</span></label>
       <input type="range" id="redirect" min="0" max="100" step="1" value="0">
-      <div class="hint">每筆配息中，這個比例會在除息當天換成台幣買進安聯台灣科技基金，留在那邊複利累積，不再參與三基金循環；剩下的部分維持現金留存。</div>
+      <div class="hint">每筆配息中，這個比例會在除息當天買進上面選的轉出標的單位，留在那邊複利累積，不再參與三基金循環；剩下的部分維持現金留存。VOO是美元計價，跟摩根/聯博/安聯一樣是美元，轉出時不需要再換匯；安聯台灣科技是台幣計價，轉出時會先用目前匯率換成台幣。</div>
     </div>
 
     <div class="field">

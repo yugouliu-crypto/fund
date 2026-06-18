@@ -60,7 +60,9 @@ function applyCrashGuard(navList, targetDate, endDate, crashGuard) {
 // order: which funds to cycle through, in sequence (default = the 3-fund rotation).
 // Pass a single-element array (e.g. ["JFZN3"]) to model "just buy and hold one fund".
 function simulate(params) {
-  const { FUNDS, TECH } = FUND_DATA;
+  const { FUNDS } = FUND_DATA;
+  const TECH = FUND_DATA.REDIRECT_TARGETS[params.redirectTarget || "ACDD04"];
+  const techIsUSD = TECH.currency === "USD";
   const ORDER = params.order || FUND_DATA.ORDER;
   const fx = params.fx;
   const switchDelayDays = params.switchDelayDays || 0;
@@ -114,7 +116,7 @@ function simulate(params) {
     let techAddUnits = 0;
     if (redirectUSD > 0) {
       const t = navOnOrAfter(TECH.nav, targetDate);
-      if (t) techAddUnits = (redirectUSD * fx) / t.nav;
+      if (t) techAddUnits = techIsUSD ? (redirectUSD / t.nav) : ((redirectUSD * fx) / t.nav);
       techUnits += techAddUnits;
     }
 
@@ -159,7 +161,7 @@ function simulate(params) {
   const finalPrincipalTWD = finalPrincipalUSD * fx;
 
   const lastTechNav = navOnOrBefore(TECH.nav, endDate) || { date: TECH.nav[TECH.nav.length - 1][0], nav: TECH.nav[TECH.nav.length - 1][1] };
-  const finalTechTWD = techUnits * lastTechNav.nav;
+  const finalTechTWD = techUnits * lastTechNav.nav * (techIsUSD ? fx : 1);
 
   if (missedCount > 0) {
     warnings.push(`目前設定下，模擬期間內有 ${missedCount} 次轉換來不及趕上下一支基金的配息基準日（資金尚未到位，配息已截止認列），表示這套轉換節奏在現實中可能無法完整執行。`);
@@ -169,7 +171,7 @@ function simulate(params) {
   }
 
   // ---- monthly snapshot table ----
-  const monthly = buildMonthly(segments, events, log, FUNDS, TECH, fx, startDate, endDate);
+  const monthly = buildMonthly(segments, events, log, FUNDS, TECH, techIsUSD, fx, startDate, endDate);
 
   return {
     startDate, endDate, cycles: log.length,
@@ -181,7 +183,7 @@ function simulate(params) {
   };
 }
 
-function buildMonthly(segments, events, log, FUNDS, TECH, fx, startDate, endDate) {
+function buildMonthly(segments, events, log, FUNDS, TECH, techIsUSD, fx, startDate, endDate) {
   const months = [];
   let cursor = monthKey(startDate) + "-01";
   const endMonth = monthKey(endDate);
@@ -214,7 +216,7 @@ function buildMonthly(segments, events, log, FUNDS, TECH, fx, startDate, endDate
       if (monthKey(e.date) === m) divThisMonthTWD += e.cashAddTWD;
     }
     const techNavInfo = navOnOrBefore(TECH.nav, snap);
-    const techTWD = techNavInfo ? techUnitsCum * techNavInfo.nav : 0;
+    const techTWD = techNavInfo ? techUnitsCum * techNavInfo.nav * (techIsUSD ? fx : 1) : 0;
 
     // which fund(s) were actually held at some point during this calendar month
     // (a single calendar month often contains a full rotation through 2-3 funds,

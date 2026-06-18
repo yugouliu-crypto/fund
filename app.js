@@ -52,10 +52,12 @@ function getParams() {
     }
   }
   const crashGuardEnabled = document.getElementById("crashGuardEnabled").checked;
+  const redirectTarget = document.getElementById("targetVOO").checked ? "VOO" : "ACDD04";
   return {
     principalTWD,
     monthlyTarget: parseFloat(document.getElementById("monthlyTarget").value) || 0,
     fx: parseFloat(document.getElementById("fx").value),
+    redirectTarget,
     redirectPct: parseFloat(document.getElementById("redirect").value) / 100,
     switchDelayDays: parseInt(document.getElementById("delay").value),
     settlementDays: parseInt(document.getElementById("settle").value),
@@ -80,11 +82,12 @@ function renderCards(r, principalTWD, params) {
   const investedTotal = principalTWD + (params.loanAmt || 0);
   const erosion = r.investedOnlyTWD - investedTotal;
   const totalReturn = r.totalTWD / investedTotal - 1;
-  const investedLabel = params.loanAmt > 0 ? `本金+科技基金 vs 投入總額(本金${fmtTWD(principalTWD)}+貸款${fmtTWD(params.loanAmt)})` : "本金+科技基金 vs 投入總額";
+  const targetName = FUND_DATA.REDIRECT_TARGETS[params.redirectTarget || "ACDD04"].name;
+  const investedLabel = params.loanAmt > 0 ? `本金+${targetName} vs 投入總額(本金${fmtTWD(principalTWD)}+貸款${fmtTWD(params.loanAmt)})` : `本金+${targetName} vs 投入總額`;
   const cards = [
     { label: "期末本金市值（仍在三基金循環中）", value: fmtTWD(r.finalPrincipalTWD), sub: `持有：${FUND_DATA.FUNDS[r.finalFund].name}` },
     { label: "累計配息現金（未轉出部分）", value: fmtTWD(r.cashCumTWD), sub: `共完成 ${r.cycles} 次轉換` },
-    { label: "安聯台灣科技基金市值", value: fmtTWD(r.finalTechTWD), sub: r.techUnits > 0 ? `累積 ${r.techUnits.toFixed(2)} 單位` : "未轉出資金至此" },
+    { label: `${targetName}市值`, value: fmtTWD(r.finalTechTWD), sub: r.techUnits > 0 ? `累積 ${r.techUnits.toFixed(2)} 單位` : "未轉出資金至此" },
     { label: investedLabel, value: fmtTWD(r.investedOnlyTWD), sub: fmtPct(erosion / investedTotal), subClass: erosion >= 0 ? "pos" : "neg" },
     { label: "總資產（含現金）／對投入總額報酬率", value: fmtTWD(r.totalTWD), sub: fmtPct(totalReturn), subClass: totalReturn >= 0 ? "pos" : "neg" },
   ];
@@ -133,9 +136,10 @@ function renderChart(r, principalTWD, params) {
   const total = r.monthly.map(m => m.totalTWD);
   const ref = r.monthly.map(() => principalTWD);
 
+  const targetName = FUND_DATA.REDIRECT_TARGETS[params.redirectTarget || "ACDD04"].name;
   const datasets = [
     { label: "本金市值（三基金循環）", data: principal, borderColor: "#4fb3ff", backgroundColor: "transparent", tension: 0.15 },
-    { label: "安聯台灣科技基金市值", data: tech, borderColor: "#ffb454", backgroundColor: "transparent", tension: 0.15 },
+    { label: `${targetName}市值`, data: tech, borderColor: "#ffb454", backgroundColor: "transparent", tension: 0.15 },
     { label: "累積配息現金", data: cash, borderColor: "#3ddc97", backgroundColor: "transparent", tension: 0.15 },
     { label: "總資產", data: total, borderColor: "#e8edf2", backgroundColor: "transparent", borderWidth: 2.5, tension: 0.15 },
     { label: "原始本金（自己出的錢）", data: ref, borderColor: "#93a3b0", borderDash: [6, 4], pointRadius: 0, backgroundColor: "transparent" },
@@ -341,6 +345,7 @@ function render() {
 
 [
   "principal", "monthlyTarget", "fx", "redirect", "delay", "settle",
+  "targetACDD04", "targetVOO",
   "loanEnabled", "loanAmt", "loanRate", "loanModeFixed", "loanModeCascade", "loanCapPct",
   "crashGuardEnabled", "crashDrop", "crashLookback",
 ].forEach(id => {

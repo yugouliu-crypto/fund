@@ -37,7 +37,10 @@ data = {
         "ALBT8": {"name": "聯博美國成長", "fullName": "聯博-美國成長基金AP總報酬月配美元", "currency": "USD",
                   "nav": load_nav("albt8_nav.csv"), "div": load_div("albt8_div.csv")},
     },
-    "TECH": {"name": "安聯台灣科技", "fullName": "安聯台灣科技基金", "currency": "TWD", "nav": load_nav("acdd04_nav.csv")},
+    "REDIRECT_TARGETS": {
+        "ACDD04": {"name": "安聯台灣科技", "fullName": "安聯台灣科技基金", "currency": "TWD", "nav": load_nav("acdd04_nav.csv")},
+        "VOO": {"name": "VOO(S&P500)", "fullName": "Vanguard S&P 500 ETF (VOO)", "currency": "USD", "nav": load_nav("voo_2024_2026.csv")},
+    },
     "ORDER": ["JFZN3", "TLZN0", "ALBT8"],
 }
 
