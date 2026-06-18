@@ -16,25 +16,47 @@ const STRATEGIES = [
 ];
 
 function getParams() {
+  const loanEnabled = document.getElementById("loanEnabled").checked;
   return {
     principalTWD: parseFloat(document.getElementById("principal").value) || 1000000,
     fx: parseFloat(document.getElementById("fx").value),
     redirectPct: parseFloat(document.getElementById("redirect").value) / 100,
     switchDelayDays: parseInt(document.getElementById("delay").value),
     settlementDays: parseInt(document.getElementById("settle").value),
+    loanEnabled,
+    loanAmt: loanEnabled ? (parseFloat(document.getElementById("loanAmt").value) || 0) : 0,
+    loanRate: parseFloat(document.getElementById("loanRate").value) / 100,
   };
 }
 
-function renderCards(r, principalTWD) {
-  const erosion = r.investedOnlyTWD - principalTWD;
-  const totalReturn = r.totalTWD / principalTWD - 1;
+// simple interest: balance(t) = principal * (1 + rate * daysElapsed/365)
+function loanBalanceAt(loanAmt, loanRate, startDateISO, asOfISO) {
+  if (!loanAmt) return 0;
+  const days = (toDateObj(asOfISO) - toDateObj(startDateISO)) / 86400000;
+  return loanAmt * (1 + loanRate * Math.max(days, 0) / 365);
+}
+
+function renderCards(r, principalTWD, params) {
+  const investedTotal = principalTWD + (params.loanAmt || 0);
+  const erosion = r.investedOnlyTWD - investedTotal;
+  const totalReturn = r.totalTWD / investedTotal - 1;
+  const investedLabel = params.loanAmt > 0 ? `本金+科技基金 vs 投入總額(本金${fmtTWD(principalTWD)}+貸款${fmtTWD(params.loanAmt)})` : "本金+科技基金 vs 投入總額";
   const cards = [
     { label: "期末本金市值（仍在三基金循環中）", value: fmtTWD(r.finalPrincipalTWD), sub: `持有：${FUND_DATA.FUNDS[r.finalFund].name}` },
     { label: "累計配息現金（未轉出部分）", value: fmtTWD(r.cashCumTWD), sub: `共完成 ${r.cycles} 次轉換` },
     { label: "安聯台灣科技基金市值", value: fmtTWD(r.finalTechTWD), sub: r.techUnits > 0 ? `累積 ${r.techUnits.toFixed(2)} 單位` : "未轉出資金至此" },
-    { label: "本金+科技基金 vs 原始本金", value: fmtTWD(r.investedOnlyTWD), sub: fmtPct(erosion / principalTWD), subClass: erosion >= 0 ? "pos" : "neg" },
-    { label: "總資產（含現金）／總報酬率", value: fmtTWD(r.totalTWD), sub: fmtPct(totalReturn), subClass: totalReturn >= 0 ? "pos" : "neg" },
+    { label: investedLabel, value: fmtTWD(r.investedOnlyTWD), sub: fmtPct(erosion / investedTotal), subClass: erosion >= 0 ? "pos" : "neg" },
+    { label: "總資產（含現金）／對投入總額報酬率", value: fmtTWD(r.totalTWD), sub: fmtPct(totalReturn), subClass: totalReturn >= 0 ? "pos" : "neg" },
   ];
+  if (params.loanEnabled && params.loanAmt > 0) {
+    const loanBal = loanBalanceAt(params.loanAmt, params.loanRate, r.startDate, r.endDate);
+    const netWorth = r.totalTWD - loanBal;
+    const netReturn = netWorth / params.principalTWD - 1;
+    cards.push(
+      { label: `保單貸款本息（借${fmtTWD(params.loanAmt)}，年息${(params.loanRate * 100).toFixed(2)}%）`, value: fmtTWD(loanBal), sub: `利息累積 ${fmtTWD(loanBal - params.loanAmt)}` },
+      { label: "淨值（總資產－貸款本息）vs 自己出的本金", value: fmtTWD(netWorth), sub: fmtPct(netReturn), subClass: netReturn >= 0 ? "pos" : "neg" },
+    );
+  }
   document.getElementById("cards").innerHTML = cards.map(c => `
     <div class="card">
       <div class="label">${c.label}</div>
@@ -52,7 +74,7 @@ function renderWarning(r) {
   }
 }
 
-function renderChart(r, principalTWD) {
+function renderChart(r, principalTWD, params) {
   const labels = r.monthly.map(m => m.month);
   const principal = r.monthly.map(m => m.principalTWD);
   const tech = r.monthly.map(m => m.techTWD);
@@ -60,20 +82,27 @@ function renderChart(r, principalTWD) {
   const total = r.monthly.map(m => m.totalTWD);
   const ref = r.monthly.map(() => principalTWD);
 
+  const datasets = [
+    { label: "本金市值（三基金循環）", data: principal, borderColor: "#4fb3ff", backgroundColor: "transparent", tension: 0.15 },
+    { label: "安聯台灣科技基金市值", data: tech, borderColor: "#ffb454", backgroundColor: "transparent", tension: 0.15 },
+    { label: "累積配息現金", data: cash, borderColor: "#3ddc97", backgroundColor: "transparent", tension: 0.15 },
+    { label: "總資產", data: total, borderColor: "#e8edf2", backgroundColor: "transparent", borderWidth: 2.5, tension: 0.15 },
+    { label: "原始本金（自己出的錢）", data: ref, borderColor: "#93a3b0", borderDash: [6, 4], pointRadius: 0, backgroundColor: "transparent" },
+  ];
+  if (params.loanEnabled && params.loanAmt > 0) {
+    const loanBal = r.monthly.map(m => loanBalanceAt(params.loanAmt, params.loanRate, r.startDate, m.snapDate));
+    const netWorth = r.monthly.map((m, i) => m.totalTWD - loanBal[i]);
+    datasets.push(
+      { label: "保單貸款本息", data: loanBal, borderColor: "#ff6b6b", backgroundColor: "transparent", borderDash: [3, 3], tension: 0.15 },
+      { label: "淨值（總資產－貸款本息）", data: netWorth, borderColor: "#c084fc", backgroundColor: "transparent", borderWidth: 2.5, tension: 0.15 },
+    );
+  }
+
   const ctx = document.getElementById("chart").getContext("2d");
   if (chart) chart.destroy();
   chart = new Chart(ctx, {
     type: "line",
-    data: {
-      labels,
-      datasets: [
-        { label: "本金市值（三基金循環）", data: principal, borderColor: "#4fb3ff", backgroundColor: "transparent", tension: 0.15 },
-        { label: "安聯台灣科技基金市值", data: tech, borderColor: "#ffb454", backgroundColor: "transparent", tension: 0.15 },
-        { label: "累積配息現金", data: cash, borderColor: "#3ddc97", backgroundColor: "transparent", tension: 0.15 },
-        { label: "總資產", data: total, borderColor: "#e8edf2", backgroundColor: "transparent", borderWidth: 2.5, tension: 0.15 },
-        { label: "原始本金", data: ref, borderColor: "#93a3b0", borderDash: [6, 4], pointRadius: 0, backgroundColor: "transparent" },
-      ],
-    },
+    data: { labels, datasets },
     options: {
       responsive: true,
       interaction: { mode: "index", intersect: false },
@@ -89,12 +118,15 @@ function renderChart(r, principalTWD) {
   });
 }
 
-function renderMonthly(r) {
+function renderMonthly(r, params) {
+  const loanOn = params.loanEnabled && params.loanAmt > 0;
   const tbody = document.querySelector("#monthly-table tbody");
   tbody.innerHTML = r.monthly.map(m => {
     const evHtml = m.eventsInMonth.length
       ? m.eventsInMonth.map(e => `${e.fundName}除息${e.exdiv.slice(5)} 配${fmtTWD(e.divTWD)}→轉入${e.nextFundName}`).join("<br>")
       : "（本月無轉換）";
+    const loanBal = loanOn ? loanBalanceAt(params.loanAmt, params.loanRate, r.startDate, m.snapDate) : 0;
+    const loanCols = `<td>${fmtTWD(loanBal)}</td><td>${fmtTWD(m.totalTWD - loanBal)}</td>`;
     return `
     <tr>
       <td>${m.month}</td>
@@ -105,6 +137,7 @@ function renderMonthly(r) {
       <td>${fmtTWD(m.cashCumTWD)}</td>
       <td>${fmtTWD(m.techTWD)}</td>
       <td>${fmtTWD(m.totalTWD)}</td>
+      ${loanCols}
     </tr>`;
   }).join("");
 }
@@ -223,18 +256,24 @@ function render() {
   document.getElementById("v-redirect").textContent = Math.round(params.redirectPct * 100) + "%";
   document.getElementById("v-delay").textContent = params.switchDelayDays + " 天";
   document.getElementById("v-settle").textContent = params.settlementDays + " 天";
+  document.getElementById("v-loanAmt").textContent = Math.round(parseFloat(document.getElementById("loanAmt").value) || 0).toLocaleString();
+  document.getElementById("v-loanRate").textContent = parseFloat(document.getElementById("loanRate").value).toFixed(2) + "%";
+  document.getElementById("loan-fields").style.display = params.loanEnabled ? "block" : "none";
 
-  const r = simulate(params);
+  // the loan amount is invested through the same rotation strategy alongside the original principal
+  const investParams = { ...params, principalTWD: params.principalTWD + params.loanAmt };
+
+  const r = simulate(investParams);
   renderWarning(r);
-  renderCards(r, params.principalTWD);
-  renderChart(r, params.principalTWD);
-  renderMonthly(r);
+  renderCards(r, params.principalTWD, params);
+  renderChart(r, params.principalTWD, params);
+  renderMonthly(r, params);
   renderLog(r);
-  renderComparison(params);
-  renderScenarioTable(params);
+  renderComparison(investParams);
+  renderScenarioTable(investParams);
 }
 
-["principal", "fx", "redirect", "delay", "settle"].forEach(id => {
+["principal", "fx", "redirect", "delay", "settle", "loanEnabled", "loanAmt", "loanRate"].forEach(id => {
   document.getElementById(id).addEventListener("input", render);
 });
 

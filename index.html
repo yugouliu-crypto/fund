@@ -45,6 +45,21 @@
       <div class="hint">依保單條款附表四，海外基金轉出後還要等「贖回款項日數」才會真正轉入下一支基金，此天數因基金而異，公告於保險公司網站，請自行查詢後填入。</div>
     </div>
 
+    <div class="field" style="border-top:1px solid #2e3a44;padding-top:14px;">
+      <label style="margin-bottom:10px;"><input type="checkbox" id="loanEnabled"> 啟用保單貸款（借錢加碼用同樣策略投入）</label>
+      <div id="loan-fields" style="display:none;">
+        <div style="margin-top:10px;">
+          <label>貸款金額 (TWD) <span class="val" id="v-loanAmt">500,000</span></label>
+          <input type="number" id="loanAmt" value="500000" step="10000" min="0">
+        </div>
+        <div style="margin-top:10px;">
+          <label>貸款年利率 (%) <span class="val" id="v-loanRate">3.99%</span></label>
+          <input type="range" id="loanRate" min="0" max="10" step="0.01" value="3.99">
+        </div>
+        <div class="hint">借出的錢和原始本金一起併入同一套循環轉換策略（視為本金變成「原始本金+貸款金額」）；貸款本息另外用單利計算（本金×年利率×天數/365），從模擬第一天開始計息，不會自動展延或還款。</div>
+      </div>
+    </div>
+
     <div class="field">
       <div class="hint" style="margin-top:6px;border-top:1px solid #2e3a44;padding-top:10px;">
         模型簡化假設：忽略保單管理費/保險成本/通路服務費；轉換費用依條款線上申請不計次數，視為0；不含海外所得稅負；匯率全程固定不變。
@@ -93,7 +108,7 @@
     <div class="hint" style="margin-bottom:8px;">注意：三基金完整循環一次大約剛好1個月，但起止日不對齊月曆，所以同一個月內常常會經歷2~3次轉換（例如月初還是摩根，月中轉到安聯，月底已經在聯博）。「月底持倉」只代表月曆最後一天那一刻的位置，請看「本月轉換明細」才知道整個月實際發生了什麼。</div>
     <div class="table-scroll">
       <table id="monthly-table">
-        <thead><tr><th>月份</th><th>本月轉換明細</th><th>月底持倉</th><th>月底本金市值</th><th>本月配息合計</th><th>累積配息現金</th><th>科技基金市值</th><th>總資產</th></tr></thead>
+        <thead><tr><th>月份</th><th>本月轉換明細</th><th>月底持倉</th><th>月底本金市值</th><th>本月配息合計</th><th>累積配息現金</th><th>科技基金市值</th><th>總資產</th><th>貸款本息</th><th>淨值(總資產-貸款)</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
