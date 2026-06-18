@@ -128,7 +128,7 @@ function simulate(params) {
   }
 
   // ---- monthly snapshot table ----
-  const monthly = buildMonthly(segments, events, FUNDS, TECH, fx, startDate, endDate);
+  const monthly = buildMonthly(segments, events, log, FUNDS, TECH, fx, startDate, endDate);
 
   return {
     startDate, endDate, cycles: log.length,
@@ -140,7 +140,7 @@ function simulate(params) {
   };
 }
 
-function buildMonthly(segments, events, FUNDS, TECH, fx, startDate, endDate) {
+function buildMonthly(segments, events, log, FUNDS, TECH, fx, startDate, endDate) {
   const months = [];
   let cursor = monthKey(startDate) + "-01";
   const endMonth = monthKey(endDate);
@@ -175,11 +175,23 @@ function buildMonthly(segments, events, FUNDS, TECH, fx, startDate, endDate) {
     const techNavInfo = navOnOrBefore(TECH.nav, snap);
     const techTWD = techNavInfo ? techUnitsCum * techNavInfo.nav : 0;
 
+    // which fund(s) were actually held at some point during this calendar month
+    // (a single calendar month often contains a full rotation through 2-3 funds,
+    // since one full JFZN3->TLZN0->ALBT8 loop takes about a month but isn't
+    // aligned to calendar boundaries)
+    const segsInMonth = segments.filter(s => monthKey(s.startDate) <= m && monthKey(s.endDate) >= m);
+    const eventsInMonth = log.filter(l => monthKey(l.exdiv) === m).map(l => ({
+      fund: l.fund, fundName: l.fundName, exdiv: l.exdiv, divTWD: l.divTWD, keptTWD: l.keptTWD,
+      redirectTWD: l.redirectTWD, nextFundName: l.nextFundName,
+    }));
+
     rows.push({
       month: m, fund: seg.fund, fundName: FUNDS[seg.fund].name, snapDate: snap,
       units: seg.units, navUsed: navInfo ? navInfo.nav : null,
       principalTWD, divThisMonthTWD, cashCumTWD: cashCum, techTWD,
       totalTWD: (principalTWD || 0) + techTWD + cashCum,
+      fundsHeldThisMonth: segsInMonth.map(s => FUNDS[s.fund].name),
+      eventsInMonth,
     });
   }
   return rows;

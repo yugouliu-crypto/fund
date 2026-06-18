@@ -84,17 +84,22 @@ function renderChart(r, principalTWD) {
 
 function renderMonthly(r) {
   const tbody = document.querySelector("#monthly-table tbody");
-  tbody.innerHTML = r.monthly.map(m => `
+  tbody.innerHTML = r.monthly.map(m => {
+    const evHtml = m.eventsInMonth.length
+      ? m.eventsInMonth.map(e => `${e.fundName}除息${e.exdiv.slice(5)} 配${fmtTWD(e.divTWD)}→轉入${e.nextFundName}`).join("<br>")
+      : "（本月無轉換）";
+    return `
     <tr>
       <td>${m.month}</td>
-      <td>${m.fundName}</td>
-      <td>${m.units.toFixed(2)}</td>
+      <td style="text-align:left;font-size:11.5px;line-height:1.6;">${evHtml}</td>
+      <td>${m.fundName}（${m.units.toFixed(0)}單位）</td>
       <td>${fmtTWD(m.principalTWD)}</td>
       <td>${m.divThisMonthTWD ? fmtTWD(m.divThisMonthTWD) : "-"}</td>
       <td>${fmtTWD(m.cashCumTWD)}</td>
       <td>${fmtTWD(m.techTWD)}</td>
       <td>${fmtTWD(m.totalTWD)}</td>
-    </tr>`).join("");
+    </tr>`;
+  }).join("");
 }
 
 function renderLog(r) {
