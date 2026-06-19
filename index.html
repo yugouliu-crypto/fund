@@ -3,20 +3,36 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>三檔月配息基金循環轉換模擬器</title>
+<title>月配息基金循環轉換模擬器</title>
 <link rel="stylesheet" href="style.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
 <body>
 <header>
   <h1>月配息基金循環轉換模擬器</h1>
-  <p>摩根多重收益 → 安聯全球 → 聯博美國成長 循環轉換，配息可部分轉入安聯台灣科技基金 ｜ 資料區間：2024/06 ~ 2026/06（實際歷史淨值與配息）</p>
+  <p>自選單配/雙配/三配基金循環，配息可部分轉入指定標的，支援長年期回測與保單貸款安全分析｜摩根/安聯/聯博只有2024/06~2026/06真實資料，更長年期會用這段資料迴圈展開；轉出標的(安聯科技/VOO/SPY)一律用各自的完整真實歷史</p>
 </header>
 
 <div class="layout">
   <div class="panel" id="controls">
-    <h2>參數設定</h2>
+    <h2>基金選擇</h2>
+    <div class="field">
+      <label>要配息循環的基金（至少選1支，可單配/雙配/三配）</label>
+      <div>
+        <label><input type="checkbox" id="fundJFZN3" checked> 摩根多重收益</label><br>
+        <label><input type="checkbox" id="fundTLZN0" checked> 安聯全球</label><br>
+        <label><input type="checkbox" id="fundALBT8" checked> 聯博美國成長</label>
+      </div>
+      <div class="hint">選2支以上時，循環順序固定是「摩根→安聯→聯博」，只是跳過沒勾選的；只選1支就是單純買進持有。</div>
+    </div>
 
+    <div class="field">
+      <label>回測年期 <span class="val" id="v-horizon">1.9 年（用全部真實資料）</span></label>
+      <input type="range" id="horizon" min="1.9" max="35" step="0.1" value="1.9">
+      <div class="hint">超過1.9年的部分，摩根/安聯/聯博會把僅有的23個月真實資料當一個週期往回迴圈展開；轉出標的(右邊選的)永遠用真實歷史，不會迴圈，超過該標的實際成立年數會自動截斷。</div>
+    </div>
+
+    <h2 style="margin-top:22px;">本金與配息</h2>
     <div class="field">
       <label>起始本金 (TWD) <span class="val" id="v-principal">1,000,000</span></label>
       <input type="number" id="principal" value="1000000" step="10000" min="10000">
@@ -25,7 +41,7 @@
     <div class="field">
       <label>每月需要的配息現金 (TWD) <span class="val" id="v-monthlyTarget">60,000</span></label>
       <input type="number" id="monthlyTarget" value="60000" step="1000" min="0">
-      <div class="hint">用「累積配息現金÷模擬月數」當平均值跟這個目標比較，僅供參考，每月實際領到的金額會因為三基金循環跟月曆不對齊而有起伏（可以從下面每月明細表看到逐月波動）。</div>
+      <div class="hint">用「累積配息現金÷模擬月數」當平均值跟這個目標比較，僅供參考，每月實際領到的金額會因為循環跟月曆不對齊而有起伏（可以從下面每月明細表看到逐月波動）。</div>
     </div>
 
     <div class="field">
@@ -39,7 +55,10 @@
         <label><input type="radio" name="redirectTarget" id="targetACDD04" value="ACDD04" checked> 安聯台灣科技</label>
         &nbsp;&nbsp;
         <label><input type="radio" name="redirectTarget" id="targetVOO" value="VOO"> VOO(S&P500)</label>
+        &nbsp;&nbsp;
+        <label><input type="radio" name="redirectTarget" id="targetSPY" value="SPY"> SPY(S&P500)</label>
       </div>
+      <div class="hint">安聯台灣科技成立於2001/04；VOO成立於2010/09；SPY成立於1993/01。三者波動深度、長期報酬差異很大，請看下面「年期變化對照表」。</div>
     </div>
 
     <div class="field">
@@ -71,6 +90,7 @@
         <div id="loanFixedFields" style="margin-top:10px;">
           <label>貸款金額 (TWD) <span class="val" id="v-loanAmt">500,000</span></label>
           <input type="number" id="loanAmt" value="500000" step="10000" min="0">
+          <div class="hint" id="maxSafeLoanHint" style="margin-top:6px;"></div>
         </div>
         <div id="loanCascadeFields" style="margin-top:10px;display:none;">
           <label>每次貸款上限（佔帳戶價值%） <span class="val" id="v-loanCapPct">50%</span></label>
@@ -81,7 +101,7 @@
           <label>貸款年利率 (%) <span class="val" id="v-loanRate">3.99%</span></label>
           <input type="range" id="loanRate" min="0" max="10" step="0.01" value="3.99">
         </div>
-        <div class="hint">借出的錢和原始本金一起併入同一套循環轉換策略（視為本金變成「原始本金+貸款金額」）；貸款本息另外用單利計算（本金×年利率×天數/365），從模擬第一天開始計息，不會自動展延或還款。「遞迴貸到上限」模擬不限次數、每次借到當下帳戶價值上限%再投入、反覆操作直到借不出有意義金額為止（數學上收斂在「投入總額=本金/(1-上限%)」）。</div>
+        <div class="hint">借出的錢和原始本金一起併入同一套循環轉換策略（視為本金變成「原始本金+貸款金額」）；貸款本息另外用單利計算（本金×年利率×天數/365），從模擬第一天開始計息，不會自動展延或還款。「遞迴貸到上限」模擬不限次數、每次借到當下帳戶價值上限%再投入、反覆操作直到借不出有意義金額為止（數學上收斂在「投入總額=本金/(1-上限%)」）。「保單帳戶價值」＝循環本金市值＋轉出標的市值，貸款本息超過這個帳戶價值的60%/70%依條款會被通知還款/強制扣抵。</div>
       </div>
     </div>
 
@@ -114,6 +134,21 @@
 
     <div class="chart-wrap">
       <canvas id="chart"></canvas>
+    </div>
+
+    <div class="section-title">貸款本息 ÷ 保單帳戶價值（循環本金+轉出標的市值）隨時間變化</div>
+    <div class="hint" style="margin-bottom:8px;">虛線是條款的60%通知門檻、70%強制扣抵門檻。線只要碰到或超過虛線，代表這個時間點貸款規模在當時的市況下已經不安全。</div>
+    <div class="chart-wrap">
+      <canvas id="chart-loan-ratio" style="max-height:280px;"></canvas>
+    </div>
+
+    <div class="section-title">年期變化對照表（固定其他設定，只改變回測年期，看門檻數字怎麼變）</div>
+    <div class="hint" style="margin-bottom:8px;">用目前選的基金組合+轉出標的，分別跑1.9/5/10/15/20/25/30年（超過轉出標的實際歷史長度的會自動截斷），看「打平本金所需轉出%」「該轉出%下的月配息」「目前貸款比例設定下不撞70%門檻的最大貸款」怎麼隨年期拉長而改變。</div>
+    <div class="table-scroll" style="margin-bottom:18px;">
+      <table id="horizon-table">
+        <thead><tr><th>回測年期</th><th>實際起始日</th><th>0%轉出時本金侵蝕%</th><th>打平本金所需轉出%</th><th>該轉出%下月配息</th><th>不撞70%門檻最大貸款(佔本金%)</th></tr></thead>
+        <tbody></tbody>
+      </table>
     </div>
 
     <div class="section-title">策略比較：三基金循環 vs 兩基金循環 vs 單一持有（同樣的配息轉出比例設定，同一起止日，方便對照）</div>

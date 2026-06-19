@@ -8,6 +8,8 @@ def parse_date(s):
     s = s.strip()
     if '/' in s:
         d = datetime.strptime(s, "%Y/%m/%d").date()
+    elif '-' in s:
+        d = datetime.strptime(s, "%Y-%m-%d").date()
     else:
         d = datetime.strptime(s, "%Y%m%d").date()
     return d.isoformat()
@@ -38,8 +40,9 @@ data = {
                   "nav": load_nav("albt8_nav.csv"), "div": load_div("albt8_div.csv")},
     },
     "REDIRECT_TARGETS": {
-        "ACDD04": {"name": "安聯台灣科技", "fullName": "安聯台灣科技基金", "currency": "TWD", "nav": load_nav("acdd04_nav.csv")},
-        "VOO": {"name": "VOO(S&P500)", "fullName": "Vanguard S&P 500 ETF (VOO)", "currency": "USD", "nav": load_nav("voo_2024_2026.csv")},
+        "ACDD04": {"name": "安聯台灣科技", "fullName": "安聯台灣科技基金", "currency": "TWD", "nav": load_nav("acdd04_monthly_since_inception.csv")},
+        "VOO": {"name": "VOO(S&P500)", "fullName": "Vanguard S&P 500 ETF (VOO)", "currency": "USD", "nav": load_nav("voo_monthly_since_inception.csv")},
+        "SPY": {"name": "SPY(S&P500)", "fullName": "SPDR S&P 500 ETF Trust (SPY)", "currency": "USD", "nav": load_nav("spy_monthly_since_inception.csv")},
     },
     "ORDER": ["JFZN3", "TLZN0", "ALBT8"],
 }

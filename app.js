@@ -3,11 +3,14 @@ function fmtTWD(n) {
   return "NT$ " + Math.round(n).toLocaleString();
 }
 function fmtPct(n) {
+  if (n == null || isNaN(n)) return "-";
   return (n >= 0 ? "+" : "") + (n * 100).toFixed(2) + "%";
 }
 
 let chart = null;
+let loanRatioChart = null;
 let cmpCharts = { principal: null, div: null, total: null };
+const REF = 1000000; // reference principal used for per-dollar scaling (max-safe-loan search)
 
 const STRATEGIES = [
   { key: "rotate", label: "循環轉換(三基金：摩根→安聯→聯博)", order: FUND_DATA.ORDER, color: "#4fb3ff" },
@@ -36,6 +39,22 @@ function cascadeLoan(principalTWD, capPct) {
   return { totalLoan, accountValue, tranches };
 }
 
+function getSelectedOrder() {
+  const all = [
+    { id: "fundJFZN3", code: "JFZN3" },
+    { id: "fundTLZN0", code: "TLZN0" },
+    { id: "fundALBT8", code: "ALBT8" },
+  ];
+  const order = all.filter(f => document.getElementById(f.id).checked).map(f => f.code);
+  return order.length > 0 ? order : ["JFZN3"]; // never allow zero funds selected
+}
+
+function getRedirectTarget() {
+  if (document.getElementById("targetVOO").checked) return "VOO";
+  if (document.getElementById("targetSPY").checked) return "SPY";
+  return "ACDD04";
+}
+
 function getParams() {
   const loanEnabled = document.getElementById("loanEnabled").checked;
   const loanMode = document.getElementById("loanModeCascade").checked ? "cascade" : "fixed";
@@ -52,12 +71,14 @@ function getParams() {
     }
   }
   const crashGuardEnabled = document.getElementById("crashGuardEnabled").checked;
-  const redirectTarget = document.getElementById("targetVOO").checked ? "VOO" : "ACDD04";
+  const horizonYears = parseFloat(document.getElementById("horizon").value);
   return {
     principalTWD,
     monthlyTarget: parseFloat(document.getElementById("monthlyTarget").value) || 0,
     fx: parseFloat(document.getElementById("fx").value),
-    redirectTarget,
+    order: getSelectedOrder(),
+    horizonYears,
+    redirectTarget: getRedirectTarget(),
     redirectPct: parseFloat(document.getElementById("redirect").value) / 100,
     switchDelayDays: parseInt(document.getElementById("delay").value),
     settlementDays: parseInt(document.getElementById("settle").value),
@@ -71,22 +92,20 @@ function getParams() {
   };
 }
 
-// simple interest: balance(t) = principal * (1 + rate * daysElapsed/365)
-function loanBalanceAt(loanAmt, loanRate, startDateISO, asOfISO) {
-  if (!loanAmt) return 0;
-  const days = (toDateObj(asOfISO) - toDateObj(startDateISO)) / 86400000;
-  return loanAmt * (1 + loanRate * Math.max(days, 0) / 365);
+function fundComboLabel(order) {
+  return order.map(c => FUND_DATA.FUNDS[c].name).join("→");
 }
 
-function renderCards(r, principalTWD, params) {
+function renderCards(r, principalTWD, params, ratioInfo, maxSafeLoan70, maxSafeLoan60) {
   const investedTotal = principalTWD + (params.loanAmt || 0);
   const erosion = r.investedOnlyTWD - investedTotal;
   const totalReturn = r.totalTWD / investedTotal - 1;
   const targetName = FUND_DATA.REDIRECT_TARGETS[params.redirectTarget || "ACDD04"].name;
+  const comboLabel = fundComboLabel(params.order);
   const investedLabel = params.loanAmt > 0 ? `本金+${targetName} vs 投入總額(本金${fmtTWD(principalTWD)}+貸款${fmtTWD(params.loanAmt)})` : `本金+${targetName} vs 投入總額`;
   const cards = [
-    { label: "期末本金市值（仍在三基金循環中）", value: fmtTWD(r.finalPrincipalTWD), sub: `持有：${FUND_DATA.FUNDS[r.finalFund].name}` },
-    { label: "累計配息現金（未轉出部分）", value: fmtTWD(r.cashCumTWD), sub: `共完成 ${r.cycles} 次轉換` },
+    { label: `期末本金市值（持有：${comboLabel}循環）`, value: fmtTWD(r.finalPrincipalTWD), sub: `目前持有：${FUND_DATA.FUNDS[r.finalFund].name}` },
+    { label: "累計配息現金（未轉出部分）", value: fmtTWD(r.cashCumTWD), sub: `共完成 ${r.cycles} 次轉換／配息事件` },
     { label: `${targetName}市值`, value: fmtTWD(r.finalTechTWD), sub: r.techUnits > 0 ? `累積 ${r.techUnits.toFixed(2)} 單位` : "未轉出資金至此" },
     { label: investedLabel, value: fmtTWD(r.investedOnlyTWD), sub: fmtPct(erosion / investedTotal), subClass: erosion >= 0 ? "pos" : "neg" },
     { label: "總資產（含現金）／對投入總額報酬率", value: fmtTWD(r.totalTWD), sub: fmtPct(totalReturn), subClass: totalReturn >= 0 ? "pos" : "neg" },
@@ -99,7 +118,19 @@ function renderCards(r, principalTWD, params) {
       { label: `保單貸款本息（借${fmtTWD(params.loanAmt)}，年息${(params.loanRate * 100).toFixed(2)}%）`, value: fmtTWD(loanBal), sub: `利息累積 ${fmtTWD(loanBal - params.loanAmt)}` },
       { label: "淨值（總資產－貸款本息）vs 自己出的本金", value: fmtTWD(netWorth), sub: fmtPct(netReturn), subClass: netReturn >= 0 ? "pos" : "neg" },
     );
+    const breached = ratioInfo.maxRatio >= 0.7 ? "70%強制扣抵" : (ratioInfo.maxRatio >= 0.6 ? "60%通知" : "安全");
+    cards.push({
+      label: "貸款÷保單帳戶價值 最高比例",
+      value: (ratioInfo.maxRatio * 100).toFixed(1) + "%",
+      sub: ratioInfo.maxRatio >= 0.6 ? `撞到${breached}門檻(${ratioInfo.maxRatioMonth})` : `從未撞到60%門檻，最高點在${ratioInfo.maxRatioMonth || "-"}`,
+      subClass: ratioInfo.maxRatio >= 0.6 ? "neg" : "pos",
+    });
   }
+  cards.push({
+    label: "不撞70%／60%門檻的最大安全貸款（佔本金%）",
+    value: fmtTWD(maxSafeLoan70) + ` (${(maxSafeLoan70 / principalTWD * 100).toFixed(1)}%)`,
+    sub: `60%門檻：${fmtTWD(maxSafeLoan60)} (${(maxSafeLoan60 / principalTWD * 100).toFixed(1)}%)`,
+  });
   if (params.monthlyTarget != null) {
     const numMonths = r.monthly.length;
     const avgMonthly = r.cashCumTWD / numMonths;
@@ -138,7 +169,7 @@ function renderChart(r, principalTWD, params) {
 
   const targetName = FUND_DATA.REDIRECT_TARGETS[params.redirectTarget || "ACDD04"].name;
   const datasets = [
-    { label: "本金市值（三基金循環）", data: principal, borderColor: "#4fb3ff", backgroundColor: "transparent", tension: 0.15 },
+    { label: `本金市值（${fundComboLabel(params.order)}循環）`, data: principal, borderColor: "#4fb3ff", backgroundColor: "transparent", tension: 0.15 },
     { label: `${targetName}市值`, data: tech, borderColor: "#ffb454", backgroundColor: "transparent", tension: 0.15 },
     { label: "累積配息現金", data: cash, borderColor: "#3ddc97", backgroundColor: "transparent", tension: 0.15 },
     { label: "總資產", data: total, borderColor: "#e8edf2", backgroundColor: "transparent", borderWidth: 2.5, tension: 0.15 },
@@ -162,12 +193,51 @@ function renderChart(r, principalTWD, params) {
       responsive: true,
       interaction: { mode: "index", intersect: false },
       scales: {
-        x: { ticks: { color: "#93a3b0" }, grid: { color: "#2e3a44" } },
+        x: { ticks: { color: "#93a3b0", maxTicksLimit: 24 }, grid: { color: "#2e3a44" } },
         y: { ticks: { color: "#93a3b0", callback: v => (v / 10000) + "萬" }, grid: { color: "#2e3a44" } },
       },
       plugins: {
         legend: { labels: { color: "#e8edf2" } },
         tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtTWD(ctx.parsed.y)}` } },
+      },
+    },
+  });
+}
+
+function renderLoanRatioChart(r, params, ratioInfo) {
+  const canvas = document.getElementById("chart-loan-ratio");
+  if (!params.loanEnabled || !params.loanAmt) {
+    if (loanRatioChart) { loanRatioChart.destroy(); loanRatioChart = null; }
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+  const labels = ratioInfo.series.map(s => s.month);
+  const ratioPct = ratioInfo.series.map(s => s.ratio * 100);
+  const line60 = labels.map(() => 60);
+  const line70 = labels.map(() => 70);
+  const ctx = canvas.getContext("2d");
+  if (loanRatioChart) loanRatioChart.destroy();
+  loanRatioChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: "貸款÷保單帳戶價值", data: ratioPct, borderColor: "#4fb3ff", backgroundColor: "transparent", tension: 0.15, pointRadius: 0 },
+        { label: "60%通知門檻", data: line60, borderColor: "#ffb454", borderDash: [6, 4], pointRadius: 0, backgroundColor: "transparent" },
+        { label: "70%強制扣抵門檻", data: line70, borderColor: "#ff6b6b", borderDash: [6, 4], pointRadius: 0, backgroundColor: "transparent" },
+      ],
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: "index", intersect: false },
+      scales: {
+        x: { ticks: { color: "#93a3b0", maxTicksLimit: 24 }, grid: { color: "#2e3a44" } },
+        y: { ticks: { color: "#93a3b0", callback: v => v + "%" }, grid: { color: "#2e3a44" } },
+      },
+      plugins: {
+        legend: { labels: { color: "#e8edf2" } },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(1)}%` } },
       },
     },
   });
@@ -219,13 +289,8 @@ function renderLog(r) {
 function renderScenarioTable(baseParams) {
   const tbody = document.querySelector("#scenario-table tbody");
   const pcts = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
-  let bestIdx = -1, bestVal = -Infinity;
-  const rows = pcts.map(p => {
-    const r = simulate({ ...baseParams, redirectPct: p / 100 });
-    return { p, r };
-  });
-  rows.forEach((row, i) => { if (row.r.investedOnlyTWD > bestVal) { bestVal = row.r.investedOnlyTWD; bestIdx = i; } });
-  tbody.innerHTML = rows.map((row, i) => `
+  const rows = pcts.map(p => ({ p, r: simulate({ ...baseParams, redirectPct: p / 100 }) }));
+  tbody.innerHTML = rows.map(row => `
     <tr>
       <td>${row.p}%</td>
       <td>${fmtTWD(row.r.finalPrincipalTWD)}</td>
@@ -285,7 +350,7 @@ function renderCompareChart(canvasId, key, field, strategies) {
       responsive: true,
       interaction: { mode: "index", intersect: false },
       scales: {
-        x: { ticks: { color: "#93a3b0" }, grid: { color: "#2e3a44" } },
+        x: { ticks: { color: "#93a3b0", maxTicksLimit: 24 }, grid: { color: "#2e3a44" } },
         y: { ticks: { color: "#93a3b0", callback: v => (v / 10000) + "萬" }, grid: { color: "#2e3a44" } },
       },
       plugins: {
@@ -304,6 +369,41 @@ function renderComparison(baseParams) {
   renderCompareChart("chart-cmp-total", "total", "totalTWD", strategies);
 }
 
+// sweep horizonYears to show how the "breakeven redirect%" and "max safe loan%" shift with
+// how many years you choose to backtest - this is the "年期變化" view.
+function renderHorizonTable(params) {
+  const tbody = document.querySelector("#horizon-table tbody");
+  const horizons = [1.9, 5, 10, 15, 20, 25, 30];
+  const rows = horizons.map(h => {
+    const base = { ...params, horizonYears: h, redirectPct: 0, loanAmt: 0, loanEnabled: false };
+    const r0 = simulate(base);
+    const erosion0 = (r0.investedOnlyTWD / params.principalTWD - 1) * 100;
+    // binary search the breakeven redirect% (0~100%) using the same per-dollar trick is overkill;
+    // just do a direct numeric search since redirectPct doesn't change principal scaling here.
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 16; i++) {
+      const mid = (lo + hi) / 2;
+      const rr = simulate({ ...base, redirectPct: mid });
+      if (rr.investedOnlyTWD < params.principalTWD) lo = mid; else hi = mid;
+    }
+    const breakevenPct = hi;
+    const rBreak = simulate({ ...base, redirectPct: breakevenPct });
+    const avgMonthly = rBreak.cashCumTWD / rBreak.monthly.length;
+    const refRun = simulate({ ...base, principalTWD: REF, redirectPct: breakevenPct });
+    const maxLoan70 = findMaxSafeLoan(refRun.monthly, refRun.startDate, REF, params.loanRate || 0.0399, 0.70, params.principalTWD);
+    return { h, r0, erosion0, breakevenPct, avgMonthly, maxLoan70, startDate: r0.startDate };
+  });
+  tbody.innerHTML = rows.map(row => `
+    <tr>
+      <td>${row.h}年</td>
+      <td>${row.startDate}</td>
+      <td class="${row.erosion0 >= 0 ? "pos" : "neg"}">${row.erosion0.toFixed(1)}%</td>
+      <td>${(row.breakevenPct * 100).toFixed(1)}%</td>
+      <td>${fmtTWD(row.avgMonthly)}</td>
+      <td>${fmtTWD(row.maxLoan70)} (${(row.maxLoan70 / params.principalTWD * 100).toFixed(1)}%)</td>
+    </tr>`).join("");
+}
+
 function render() {
   const params = getParams();
   document.getElementById("v-principal").textContent = Math.round(params.principalTWD).toLocaleString();
@@ -317,6 +417,8 @@ function render() {
   document.getElementById("v-loanCapPct").textContent = document.getElementById("loanCapPct").value + "%";
   document.getElementById("v-crashDrop").textContent = document.getElementById("crashDrop").value + "%";
   document.getElementById("v-crashLookback").textContent = document.getElementById("crashLookback").value + " 天";
+  document.getElementById("v-horizon").textContent = params.horizonYears <= 1.91
+    ? "1.9 年（用全部真實資料）" : params.horizonYears.toFixed(1) + " 年";
 
   document.getElementById("loan-fields").style.display = params.loanEnabled ? "block" : "none";
   document.getElementById("loanFixedFields").style.display = params.loanMode === "fixed" ? "block" : "none";
@@ -334,22 +436,45 @@ function render() {
   const investParams = { ...params, principalTWD: params.principalTWD + params.loanAmt };
 
   const r = simulate(investParams);
+  const ratioInfo = params.loanAmt > 0 ? loanRatioSeries(r.monthly, r.startDate, params.loanAmt, params.loanRate) : { series: [], maxRatio: 0, maxRatioMonth: null };
+
+  // reference run (no loan) to size the "max safe loan" suggestion at the user's own principal
+  const refRun = simulate({ ...params, principalTWD: REF, loanAmt: 0 });
+  const maxSafeLoan70 = findMaxSafeLoan(refRun.monthly, refRun.startDate, REF, params.loanRate, 0.70, params.principalTWD);
+  const maxSafeLoan60 = findMaxSafeLoan(refRun.monthly, refRun.startDate, REF, params.loanRate, 0.60, params.principalTWD);
+  document.getElementById("maxSafeLoanHint").textContent =
+    `目前設定下，不撞70%強制扣抵門檻的最大貸款約 ${fmtTWD(maxSafeLoan70)}（本金的${(maxSafeLoan70 / params.principalTWD * 100).toFixed(1)}%）；不撞60%通知門檻約 ${fmtTWD(maxSafeLoan60)}（${(maxSafeLoan60 / params.principalTWD * 100).toFixed(1)}%）。`;
+
   renderWarning(r);
-  renderCards(r, params.principalTWD, params);
+  renderCards(r, params.principalTWD, params, ratioInfo, maxSafeLoan70, maxSafeLoan60);
   renderChart(r, params.principalTWD, params);
+  renderLoanRatioChart(r, params, ratioInfo);
+  renderHorizonTable(params);
   renderMonthly(r, params);
   renderLog(r);
   renderComparison(investParams);
   renderScenarioTable(investParams);
 }
 
+// debounced trigger: long-horizon backtests can take a noticeable fraction of a second
+// (the horizon-comparison table alone runs ~150 simulate() calls), so re-running on every
+// single "input" tick while a slider is being dragged would feel janky. Wait for a short
+// pause instead.
+let renderTimer = null;
+function scheduleRender() {
+  if (renderTimer) clearTimeout(renderTimer);
+  renderTimer = setTimeout(render, 120);
+}
+
 [
-  "principal", "monthlyTarget", "fx", "redirect", "delay", "settle",
-  "targetACDD04", "targetVOO",
+  "principal", "monthlyTarget", "fx", "horizon",
+  "fundJFZN3", "fundTLZN0", "fundALBT8",
+  "redirect", "delay", "settle",
+  "targetACDD04", "targetVOO", "targetSPY",
   "loanEnabled", "loanAmt", "loanRate", "loanModeFixed", "loanModeCascade", "loanCapPct",
   "crashGuardEnabled", "crashDrop", "crashLookback",
 ].forEach(id => {
-  document.getElementById(id).addEventListener("input", render);
+  document.getElementById(id).addEventListener("input", scheduleRender);
 });
 
 render();
