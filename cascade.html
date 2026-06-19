@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>分支式保單貸款裂變模擬器</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>分支式保單貸款裂變模擬器</h1>
+  <p>本金+貸款投入聯博美國成長單配，配息部分轉出安聯台灣科技；每當某張保單的安聯科技市值再累積滿一個貸款額度，就再借出同額度去開一張新保單（保單貸款不影響配息運作，只是用帳戶價值當擔保品）。為符合實務節奏，全體每年最多開一張新保單。&nbsp;<a href="index.html" style="color:#4fb3ff;">← 回主模擬器</a></p>
+</header>
+
+<div class="layout">
+  <div class="panel" id="controls">
+    <h2>基本設定</h2>
+    <div class="field">
+      <label>本金 (TWD) <span class="val" id="v-principal">2,000,000</span></label>
+      <input type="number" id="principal" value="2000000" step="100000" min="100000">
+    </div>
+
+    <div class="field">
+      <label>貸款成數 <span class="val" id="v-loanRatio">50%</span></label>
+      <input type="range" id="loanRatio" min="10" max="100" step="5" value="50">
+      <div class="hint">第一張保單：本金 × 貸款成數 = 第一筆貸款金額。這個金額也是後面每一次「再借一次去開新保單」固定使用的額度。</div>
+    </div>
+
+    <div class="field">
+      <label>配息領出比例（留存現金） <span class="val" id="v-withdrawPct">80%</span></label>
+      <input type="range" id="withdrawPct" min="0" max="100" step="5" value="80">
+      <div class="hint">每筆配息，這個比例直接留存現金可以花用；剩下的比例（100%－這個比例）轉出買進安聯台灣科技，留在保單裡累積，作為下一次再借款的來源。</div>
+    </div>
+
+    <div class="field" style="border-top:1px solid var(--border);padding-top:14px;">
+      <label>收割時間點（轉換成被動收入估算用）</label>
+      <input type="month" id="harvestDate" value="2026-06">
+      <div class="hint">假設到了這個年月，把當時所有保單（本尊＋所有已開出的子保單）累積的安聯台灣科技市值，全部轉回聯博美國成長基金，從那之後不再轉出、全部配息留存現金，估算屆時的月被動收入。</div>
+    </div>
+
+    <div class="field" style="border-top:1px solid var(--border);padding-top:14px;">
+      <div class="hint">
+        模型簡化假設：聯博美國成長只有23個月真實資料，超過範圍會用同一段資料當週期迴圈展開；安聯台灣科技永遠用真實歷史，超過實際成立年數會自動截斷並顯示警示。忽略保單管理費/保險成本/通路服務費/海外所得稅負；匯率全程固定31.5；不考慮每張子保單各自的60%/70%貸款比例門檎（如需檢查請回主模擬器逐張確認）。
+      </div>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="warning-area"></div>
+
+    <div class="cards" id="cards"></div>
+
+    <div class="chart-wrap">
+      <div class="hint" style="margin-bottom:6px;">全體（本尊＋所有子保單）合計每月配息現金（近12月平均）隨時間變化</div>
+      <canvas id="chart-income"></canvas>
+    </div>
+
+    <div class="chart-wrap">
+      <div class="hint" style="margin-bottom:6px;">全體合計總資產（本金市值＋安聯科技市值＋累積配息現金）隨時間變化</div>
+      <canvas id="chart-total"></canvas>
+    </div>
+
+    <div class="section-title">保單清單（依開出時間排序，本尊為「A」）</div>
+    <div class="table-scroll" style="margin-bottom:18px;">
+      <table id="policy-table">
+        <thead><tr><th>保單編號</th><th>來源</th><th>開出時間</th><th>投入本金</th><th>目前狀態(資料結尾時)</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section-title">收割結果（在上面選的年月，把當時所有保單的安聯科技市值全部轉回配息基金）</div>
+    <div class="cards" id="harvest-cards"></div>
+  </div>
+</div>
+
+<footer>
+  分支式保單貸款裂變模擬器 ｜ 數據來源：摩根/安聯/聯博23個月真實月配息資料 + 安聯台灣科技/SPY/VOO完整成立至今真實歷史 ｜ 僅供策略推演參考，不構成投資建議
+</footer>
+
+<script src="data.js"></script>
+<script src="engine.js"></script>
+<script src="cascade.js"></script>
+</body>
+</html>
