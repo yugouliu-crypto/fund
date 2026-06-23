@@ -96,18 +96,26 @@ function renderMainChart() {
   const startMonth = rangeToStartMonth(range);
   const endMonth = MACRO_DATA.spy[MACRO_DATA.spy.length - 1][0];
 
+  // build ONE canonical, fully-sorted month list and map every dataset onto it explicitly
+  // (null where a series has no data that month). If any source series ever has a gap,
+  // Chart.js's category x-axis would otherwise append that label wherever a LATER dataset
+  // first mentions it - out of chronological order - which draws a stray line back across
+  // the whole chart (this bit the Taiwan dashboard in practice: TAIEX had 14 missing months).
+  const months = [];
+  for (let m = startMonth; m <= endMonth; m = monthKeyAdd(m, 1)) months.push(m);
+
   const datasets = [];
   if (document.getElementById("showSPY").checked) {
-    const dd = drawdownSeries(MACRO_DATA.spy, startMonth, endMonth);
-    datasets.push({ label: "S&P500(距歷史高點%)", data: dd.map(([m, v]) => ({ x: m, y: v })), borderColor: "#4fb3ff", backgroundColor: "transparent", tension: 0.1, pointRadius: 0, yAxisID: "y" });
+    const ddMap = new Map(drawdownSeries(MACRO_DATA.spy, startMonth, endMonth));
+    datasets.push({ label: "S&P500(距歷史高點%)", data: months.map(m => ({ x: m, y: ddMap.has(m) ? ddMap.get(m) : null })), spanGaps: true, borderColor: "#4fb3ff", backgroundColor: "transparent", tension: 0.1, pointRadius: 0, yAxisID: "y" });
   }
   if (document.getElementById("showACDD04").checked) {
-    const dd = drawdownSeries(MACRO_DATA.acdd04, startMonth, endMonth);
-    datasets.push({ label: "安聯台灣科技(距歷史高點%)", data: dd.map(([m, v]) => ({ x: m, y: v })), borderColor: "#ffb454", backgroundColor: "transparent", tension: 0.1, pointRadius: 0, yAxisID: "y" });
+    const ddMap = new Map(drawdownSeries(MACRO_DATA.acdd04, startMonth, endMonth));
+    datasets.push({ label: "安聯台灣科技(距歷史高點%)", data: months.map(m => ({ x: m, y: ddMap.has(m) ? ddMap.get(m) : null })), spanGaps: true, borderColor: "#ffb454", backgroundColor: "transparent", tension: 0.1, pointRadius: 0, yAxisID: "y" });
   }
-  const scoreData = TIER_SERIES.filter(r => (!startMonth || r.month >= startMonth) && r.month <= endMonth)
-    .map(r => ({ x: r.month, y: r.compositeScore }));
-  datasets.push({ label: "綜合風險分數", data: scoreData, borderColor: "#ff6b6b", backgroundColor: "rgba(255,107,107,0.08)", fill: true, tension: 0.1, pointRadius: 0, yAxisID: "y2", borderDash: [4, 3] });
+  const scoreMap = new Map(TIER_SERIES.map(r => [r.month, r.compositeScore]));
+  const scoreData = months.map(m => ({ x: m, y: scoreMap.has(m) ? scoreMap.get(m) : null }));
+  datasets.push({ label: "綜合風險分數", data: scoreData, spanGaps: true, borderColor: "#ff6b6b", backgroundColor: "rgba(255,107,107,0.08)", fill: true, tension: 0.1, pointRadius: 0, yAxisID: "y2", borderDash: [4, 3] });
 
   const ctx = document.getElementById("chart-main").getContext("2d");
   if (mainChart) mainChart.destroy();

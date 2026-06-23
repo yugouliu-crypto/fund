@@ -40,18 +40,25 @@ function twRenderMainChart() {
   const startMonth = twRangeToStartMonth(range);
   const endMonth = TW_DATA.taiex[TW_DATA.taiex.length - 1][0];
 
+  // build ONE canonical, fully-sorted month list and map every dataset onto it explicitly
+  // (null where a series has no data that month). If any source series has a gap, Chart.js's
+  // category x-axis would otherwise append that label wherever a LATER dataset first mentions
+  // it - out of chronological order - which draws a stray line back across the whole chart.
+  const months = [];
+  for (let m = startMonth; m <= endMonth; m = twMonthKeyAdd(m, 1)) months.push(m);
+
   const datasets = [];
   if (document.getElementById("showTAIEX").checked) {
-    const dd = twDrawdownSeries(TW_DATA.taiex, startMonth, endMonth);
-    datasets.push({ label: "TAIEX(距歷史高點%)", data: dd.map(([m, v]) => ({ x: m, y: v })), borderColor: "#4fb3ff", backgroundColor: "transparent", tension: 0.1, pointRadius: 0, yAxisID: "y" });
+    const ddMap = new Map(twDrawdownSeries(TW_DATA.taiex, startMonth, endMonth));
+    datasets.push({ label: "TAIEX(距歷史高點%)", data: months.map(m => ({ x: m, y: ddMap.has(m) ? ddMap.get(m) : null })), spanGaps: true, borderColor: "#4fb3ff", backgroundColor: "transparent", tension: 0.1, pointRadius: 0, yAxisID: "y" });
   }
   if (document.getElementById("showSOX").checked) {
-    const dd = twDrawdownSeries(TW_DATA.sox, startMonth, endMonth);
-    datasets.push({ label: "費城半導體指數SOX(距歷史高點%)", data: dd.map(([m, v]) => ({ x: m, y: v })), borderColor: "#ffb454", backgroundColor: "transparent", tension: 0.1, pointRadius: 0, yAxisID: "y" });
+    const ddMap = new Map(twDrawdownSeries(TW_DATA.sox, startMonth, endMonth));
+    datasets.push({ label: "費城半導體指數SOX(距歷史高點%)", data: months.map(m => ({ x: m, y: ddMap.has(m) ? ddMap.get(m) : null })), spanGaps: true, borderColor: "#ffb454", backgroundColor: "transparent", tension: 0.1, pointRadius: 0, yAxisID: "y" });
   }
-  const scoreData = TW_SCORE_SERIES.filter(r => (!startMonth || r.month >= startMonth) && r.month <= endMonth)
-    .map(r => ({ x: r.month, y: r.compositeScore }));
-  datasets.push({ label: "異常指標數量", data: scoreData, borderColor: "#ff6b6b", backgroundColor: "rgba(255,107,107,0.08)", fill: true, tension: 0.1, pointRadius: 0, yAxisID: "y2", borderDash: [4, 3] });
+  const scoreMap = new Map(TW_SCORE_SERIES.map(r => [r.month, r.compositeScore]));
+  const scoreData = months.map(m => ({ x: m, y: scoreMap.has(m) ? scoreMap.get(m) : null }));
+  datasets.push({ label: "異常指標數量", data: scoreData, spanGaps: true, borderColor: "#ff6b6b", backgroundColor: "rgba(255,107,107,0.08)", fill: true, tension: 0.1, pointRadius: 0, yAxisID: "y2", borderDash: [4, 3] });
 
   const ctx = document.getElementById("chart-main").getContext("2d");
   if (twMainChart) twMainChart.destroy();
