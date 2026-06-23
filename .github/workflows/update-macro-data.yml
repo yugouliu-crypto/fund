@@ -1,0 +1,42 @@
+name: Update macro dashboard data
+
+on:
+  schedule:
+    # weekly: Monday 06:13 UTC (~14:13 Taipei) - off the hour/half-hour on purpose
+    - cron: "13 6 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pandas openpyxl xlrd numpy
+
+      - name: Refresh all data sources and rebuild macro_data.js
+        run: python refresh_all_data.py
+        working-directory: research
+
+      - name: Commit and push if macro_data.js changed
+        run: |
+          git config user.name "macro-data-bot"
+          git config user.email "actions@users.noreply.github.com"
+          if git diff --quiet -- macro_data.js; then
+            echo "no changes to macro_data.js, nothing to commit"
+          else
+            # only commit the deployed JSON output - the raw FRED/Shiller/FINRA source files
+            # are re-fetched fresh by every run, so versioning them weekly would just bloat
+            # the repo with large binary diffs nothing actually depends on.
+            git add macro_data.js
+            git commit -m "Weekly auto-refresh of macro dashboard data"
+            git push
+          fi
