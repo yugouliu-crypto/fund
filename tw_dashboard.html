@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>台股領先指標模型(早期版)</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>台股領先指標模型(早期版)</h1>
+  <p>6個台灣指標，跟TAIEX加權指數、費城半導體指數(SOX)的真實走勢比對｜資料源：TWSE+FRED，月頻率｜<a href="index.html" style="color:#4fb3ff;">← 回主模擬器</a>　<a href="macro_dashboard.html" style="color:#4fb3ff;">美股版巨觀模型 →</a></p>
+</header>
+
+<div class="layout">
+  <div class="panel" id="controls">
+    <h2>顯示設定</h2>
+    <div class="field">
+      <label>比較標的</label>
+      <div>
+        <label><input type="checkbox" id="showTAIEX" checked> TAIEX加權指數</label><br>
+        <label><input type="checkbox" id="showSOX" checked> 費城半導體指數(SOX)</label>
+      </div>
+      <div class="hint">圖上畫的是「距歷史高點還差多少%」。TAIEX有個重要特性：1990年泡沫高點(12054點)直到2020年才重新站回，中間整整30年都在「歷史高點之下」，所以這段時間的線不會回到0%，但仍會隨著每次景氣循環的相對高低起伏——這是真實歷史現象，不是圖表錯誤。</div>
+    </div>
+
+    <div class="field">
+      <label>顯示時間範圍</label>
+      <div>
+        <label><input type="radio" name="range" value="10y" checked> 近10年</label><br>
+        <label><input type="radio" name="range" value="20y"> 近20年</label><br>
+        <label><input type="radio" name="range" value="all"> 全部(1990年起)</label>
+      </div>
+    </div>
+
+    <div class="field" style="border-top:1px solid var(--border);padding-top:14px;">
+      <div class="hint">
+        <b>這是早期/部分版本，跟美股版方法論一樣但指標數量少很多</b><br>
+        目前只有6個指標：台股融資餘額年增率、出口/進口值年增率、台幣兌美元年貶值率、外匯存底年增率、貿易餘額年變化。都還沒有：景氣對策信號(燈號)、台灣CPI、M2貨幣供給、台股大盤本益比(對應美股版的CAPE估值層)——這幾項使用者正在手動蒐集，補進來後模型會更完整。<br>
+        因為指標數量少、回測樣本也小，這裡<b>沒有</b>像美股版分Tier1/2/3不同提前時間，綜合分數只是「異常指標數量」的簡單加總，可信度低於美股版。<br>
+        <b>跟美股的關聯</b>：測過TAIEX跟S&P500/SOX的月報酬相關係數約0.53，但領先/落後測試顯示兩邊幾乎是「同月同步」，不是誰提前誰——美股不能當台股的提前預警，但美股版那17個指標本身(殖利率倒掛、Sahm Rule、VIX等)套到台股自己的危機事件一樣有效，可以當額外的巨觀驗證層參考。
+      </div>
+    </div>
+  </div>
+
+  <div id="main">
+    <div class="section-title" style="margin-top:0;">6個指標目前是否異常</div>
+    <div id="warning-area"></div>
+    <div class="cards" id="tier-cards"></div>
+
+    <div class="chart-wrap">
+      <div class="hint" style="margin-bottom:6px;">TAIEX / SOX 距歷史高點的跌幅(藍/橙，左軸) vs 異常指標數量(紅虛線，右軸)——紅線升高後，藍/橙線是否接著出現明顯凹陷，就是在看「訊號有沒有抓到真的崩跌」</div>
+      <canvas id="chart-main" style="max-height:420px;"></canvas>
+    </div>
+
+    <div class="section-title">歷史9次台股市場事件，當時異常指標數量是多少</div>
+    <div class="table-scroll" style="margin-bottom:18px;">
+      <table id="event-table">
+        <thead><tr><th>事件</th><th>高點時間</th><th>高點當月異常數</th><th>高點前24個月內最高異常數</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section-title">6個指標目前狀態(依Z分數排序)</div>
+    <div class="table-scroll" style="margin-bottom:18px;">
+      <table id="status-table">
+        <thead><tr><th>指標</th><th>最新資料月份</th><th>原始值</th><th>Z分數</th><th>狀態</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<footer>
+  台股領先指標模型(早期版) ｜ 資料來源：TWSE、FRED ｜ 樣本量比美股版更小，方法論相同但成熟度較低，結論僅供策略推演參考，不構成投資建議，不保證未來重演
+</footer>
+
+<script src="tw_data.js"></script>
+<script src="tw_engine.js"></script>
+<script src="tw_dashboard.js"></script>
+</body>
+</html>
