@@ -22,7 +22,7 @@
         <label><input type="checkbox" id="showSPY" checked> S&P500</label><br>
         <label><input type="checkbox" id="showACDD04" checked> 安聯台灣科技</label>
       </div>
-      <div class="hint">兩者單位差很大，圖上會自動換算成「相對於圖表起點的%變化」，方便直接比較走勢形狀。安聯台灣科技只有2001年4月之後的真實資料。</div>
+      <div class="hint">圖上畫的是「距歷史高點還差多少%」(0%=當時創新高，數字越負代表跌得越深)，不是單純的%變化——這樣不管圖表拉多長，每次真正的崩跌都會清楚顯示成一個明顯的凹陷，不會被多年累積的漲幅蓋過去看不出來。安聯台灣科技只有2001年4月之後的真實資料。</div>
     </div>
 
     <div class="field">
@@ -50,7 +50,7 @@
     <div class="cards" id="tier-cards"></div>
 
     <div class="chart-wrap">
-      <div class="hint" style="margin-bottom:6px;">S&P500 / 安聯台灣科技 走勢（相對圖表起點%變化） vs 綜合風險分數</div>
+      <div class="hint" style="margin-bottom:6px;">S&P500 / 安聯台灣科技 距歷史高點的跌幅(藍/橙，左軸) vs 綜合風險分數(紅虛線，右軸)——紅線升高後，藍/橙線是否接著出現明顯凹陷，就是在看「訊號有沒有抓到真的崩跌」</div>
       <canvas id="chart-main" style="max-height:420px;"></canvas>
     </div>
 

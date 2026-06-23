@@ -114,3 +114,16 @@ function normalizeSeries(pairs, startMonth, endMonth) {
   const base = filtered[0][1];
   return filtered.map(([m, v]) => [m, (v / base - 1) * 100]);
 }
+
+// % below the trailing all-time high, computed over the FULL series first (so the rolling
+// peak isn't artificially reset at the visible window's start), then clipped to the display
+// window. Crisis drawdowns stay clearly visible at any zoom level, unlike "%-from-chart-start"
+// which gets compressed to near-invisibility once cumulative growth is large.
+function drawdownSeries(pairs, startMonth, endMonth) {
+  let peak = -Infinity;
+  const full = pairs.map(([m, v]) => {
+    peak = Math.max(peak, v);
+    return [m, (v / peak - 1) * 100];
+  });
+  return full.filter(([m]) => (!startMonth || m >= startMonth) && (!endMonth || m <= endMonth));
+}

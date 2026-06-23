@@ -6,7 +6,13 @@ function fmtNum(n, digits = 2) { return n == null || isNaN(n) ? "-" : n.toFixed(
 
 function rangeToStartMonth(range) {
   const lastMonth = MACRO_DATA.spy[MACRO_DATA.spy.length - 1][0];
-  if (range === "all") return null;
+  const spyFirstMonth = MACRO_DATA.spy[0][0];
+  // "all" means "all of SPY's history" (1993+), not the risk score's own longer history
+  // (back to 1947) - this chart exists to compare the score against SPY/ACDD04, so showing
+  // decades of score-only data with no market line to compare against is never useful here,
+  // and worse, previously let the composite-score series carry x-axis category labels the
+  // SPY/ACDD04 series didn't have, which Chart.js's category scale appends out of order.
+  if (range === "all") return spyFirstMonth;
   const years = range === "10y" ? 10 : 20;
   return monthKeyAdd(lastMonth, -years * 12);
 }
@@ -53,12 +59,12 @@ function renderMainChart() {
 
   const datasets = [];
   if (document.getElementById("showSPY").checked) {
-    const norm = normalizeSeries(MACRO_DATA.spy, startMonth, endMonth);
-    datasets.push({ label: "S&P500(%變化)", data: norm.map(([m, v]) => ({ x: m, y: v })), borderColor: "#4fb3ff", backgroundColor: "transparent", tension: 0.1, pointRadius: 0, yAxisID: "y" });
+    const dd = drawdownSeries(MACRO_DATA.spy, startMonth, endMonth);
+    datasets.push({ label: "S&P500(距歷史高點%)", data: dd.map(([m, v]) => ({ x: m, y: v })), borderColor: "#4fb3ff", backgroundColor: "transparent", tension: 0.1, pointRadius: 0, yAxisID: "y" });
   }
   if (document.getElementById("showACDD04").checked) {
-    const norm = normalizeSeries(MACRO_DATA.acdd04, startMonth, endMonth);
-    datasets.push({ label: "安聯台灣科技(%變化)", data: norm.map(([m, v]) => ({ x: m, y: v })), borderColor: "#ffb454", backgroundColor: "transparent", tension: 0.1, pointRadius: 0, yAxisID: "y" });
+    const dd = drawdownSeries(MACRO_DATA.acdd04, startMonth, endMonth);
+    datasets.push({ label: "安聯台灣科技(距歷史高點%)", data: dd.map(([m, v]) => ({ x: m, y: v })), borderColor: "#ffb454", backgroundColor: "transparent", tension: 0.1, pointRadius: 0, yAxisID: "y" });
   }
   const scoreData = TIER_SERIES.filter(r => (!startMonth || r.month >= startMonth) && r.month <= endMonth)
     .map(r => ({ x: r.month, y: r.compositeScore }));
@@ -75,7 +81,7 @@ function renderMainChart() {
       parsing: { xAxisKey: "x", yAxisKey: "y" },
       scales: {
         x: { type: "category", ticks: { color: "#93a3b0", maxTicksLimit: 20 }, grid: { color: "#2e3a44" } },
-        y: { position: "left", ticks: { color: "#93a3b0", callback: v => v + "%" }, grid: { color: "#2e3a44" }, title: { display: true, text: "%變化", color: "#93a3b0" } },
+        y: { position: "left", max: 5, ticks: { color: "#93a3b0", callback: v => v + "%" }, grid: { color: "#2e3a44" }, title: { display: true, text: "距歷史高點%(0=創新高)", color: "#93a3b0" } },
         y2: { position: "right", ticks: { color: "#93a3b0" }, grid: { display: false }, title: { display: true, text: "綜合風險分數", color: "#93a3b0" }, min: 0 },
       },
       plugins: {
