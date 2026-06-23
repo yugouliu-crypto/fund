@@ -6,7 +6,7 @@ const TIER_BY_MONTH = new Map(TIER_SERIES.map(r => [r.month, r]));
 function renderCapeCards() {
   const s = capeStatus();
   const cards = [
-    { label: "目前CAPE(本益比，經週期調整)", value: fmtNum(s.cape, 1), sub: s.isEstimated ? `估算值(${s.month}，2023-09後用企業利潤推估)` : `官方資料(${s.month})`, cls: "" },
+    { label: "目前CAPE(本益比，經週期調整)", value: fmtNum(s.cape, 1), sub: s.isEstimated ? `推估值(${s.month})，已用multpl.com真實數字校正過` : `官方資料(${s.month})`, cls: "" },
     { label: "145年歷史百分位", value: fmtNum(s.percentile, 0) + "%", sub: s.elevated ? "在歷史前10%最貴區間內" : "不在歷史前10%最貴區間", cls: s.elevated ? "neg" : "pos" },
     { label: "90百分位門檻值(歷史前10%最貴的分界)", value: fmtNum(s.threshold90, 1), sub: "回測過的7次危機，發生時CAPE都超過這個門檻", cls: "" },
     { label: "資產體質判定", value: s.elevated ? "偏脆弱" : "相對健康", sub: s.elevated ? "歷史上所有7次危機都在這個區間發生，後面的訊號要認真看" : "歷史上7次危機都沒有在這個區間發生過", cls: s.elevated ? "neg" : "pos" },
