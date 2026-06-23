@@ -1,9 +1,13 @@
 """
-One-shot refresh of every raw data source the macro dashboard depends on, then re-exports
-macro_data.js. Designed to be run unattended (e.g. by the weekly GitHub Actions workflow) -
-every step is best-effort: a single failed fetch (a renamed FRED series, a flaky host) should
-not stop the rest of the pipeline, since most of the upstream value is in the OTHER ~20 series
-still refreshing successfully. Logs failures clearly instead of silently swallowing them.
+One-shot refresh of every raw data source the macro dashboard depends on (21 FRED series,
+Shiller's CAPE workbook, FINRA margin debt, plus a live multpl.com check to calibrate the
+post-Shiller CAPE estimate), then re-exports macro_data.js. Designed to be run unattended
+(e.g. by the weekly GitHub Actions workflow) - every step is best-effort: a single failed
+fetch (a renamed FRED series, a flaky host) should not stop the rest of the pipeline, since
+most of the upstream value is in the OTHER ~20 series still refreshing successfully. Logs
+failures clearly instead of silently swallowing them. If the multpl.com check itself fails,
+macro_cape_calibrate.py just skips calibration for that run and keeps the raw CP-proxy
+estimate - it never blocks the rest of the pipeline.
 """
 import subprocess
 import sys
@@ -67,11 +71,11 @@ if failures:
         print(" -", f)
 
 # re-run the processing pipeline in dependency order: raw FRED CSVs -> macro_merged.csv ->
-# macro_with_anomaly.csv -> macro_final.csv -> (shiller/finra cleaned + CAPE CP-proxy estimate,
-# NOT re-calibrated against multpl.com here - that needs a manual check, see
-# research/macro_cape_calibrate.py) -> export macro_data.js.
+# macro_with_anomaly.csv -> macro_final.csv -> shiller/finra cleaned + CAPE CP-proxy estimate
+# -> live-calibrate that estimate against multpl.com's published reading -> export macro_data.js.
 for script in ["macro_model.py", "macro_anomaly.py", "macro_cross_event_v3.py",
-               "macro_cape_margin.py", "macro_cape_extend.py", "export_macro_js_v2.py"]:
+               "macro_cape_margin.py", "macro_cape_extend.py", "macro_cape_calibrate.py",
+               "export_macro_js_v2.py"]:
     print(f"+ running {script}")
     r = subprocess.run([sys.executable, script], cwd=BASE)
     if r.returncode != 0:
