@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>巨觀經濟領先指標模型</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>巨觀經濟領先指標模型</h1>
+  <p>17個美國經濟指標，依歷史回測(1998~2022七次市場事件)的平均領先時間分成3層，跟S&P500、安聯台灣科技的真實走勢比對｜資料源：FRED(美國聯準會經濟資料庫)，月頻率，1947年至今｜<a href="index.html" style="color:#4fb3ff;">← 回主模擬器</a>　<a href="cascade.html" style="color:#4fb3ff;">分支式保單貸款模擬器 →</a></p>
+</header>
+
+<div class="layout">
+  <div class="panel" id="controls">
+    <h2>顯示設定</h2>
+    <div class="field">
+      <label>比較標的</label>
+      <div>
+        <label><input type="checkbox" id="showSPY" checked> S&P500</label><br>
+        <label><input type="checkbox" id="showACDD04" checked> 安聯台灣科技</label>
+      </div>
+      <div class="hint">兩者單位差很大，圖上會自動換算成「相對於圖表起點的%變化」，方便直接比較走勢形狀。安聯台灣科技只有2001年4月之後的真實資料。</div>
+    </div>
+
+    <div class="field">
+      <label>顯示時間範圍</label>
+      <div>
+        <label><input type="radio" name="range" value="10y" checked> 近10年</label><br>
+        <label><input type="radio" name="range" value="20y"> 近20年</label><br>
+        <label><input type="radio" name="range" value="all"> 全部(1993年起)</label>
+      </div>
+    </div>
+
+    <div class="field" style="border-top:1px solid var(--border);padding-top:14px;">
+      <div class="hint">
+        <b>分層方法說明</b><br>
+        Tier1(房市/信用結構層)：房價、房貸利率、新屋開工、建照、NFCI、耐久財新訂單、貿易餘額——歷史上平均提前CPI異常14~23個月。<br>
+        Tier2(信用/情緒/勞動層)：銀行放款標準、VIX、M2、Sahm Rule、初領失業金——平均提前9~13個月。<br>
+        Tier3(即時確認層)：油價、殖利率倒掛——平均提前1~4個月，幾乎跟CPI異常同步。<br>
+        綜合分數 = Tier1異常數×1 + Tier2異常數×1.5 + Tier3異常數×2(越接近確認層權重越高)。銅價、信用價差(Baa-10Y)歷史命中率太低，僅供參考不計入分數。
+      </div>
+    </div>
+  </div>
+
+  <div id="main">
+    <div id="warning-area"></div>
+    <div class="cards" id="tier-cards"></div>
+
+    <div class="chart-wrap">
+      <div class="hint" style="margin-bottom:6px;">S&P500 / 安聯台灣科技 走勢（相對圖表起點%變化） vs 綜合風險分數</div>
+      <canvas id="chart-main" style="max-height:420px;"></canvas>
+    </div>
+
+    <div class="section-title">歷史7次市場事件，當時綜合分數是多少</div>
+    <div class="table-scroll" style="margin-bottom:18px;">
+      <table id="event-table">
+        <thead><tr><th>事件</th><th>高點時間</th><th>高點當月綜合分數</th><th>高點前24個月內最高分數</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="section-title">17個指標目前狀態(依Z分數排序)</div>
+    <div class="table-scroll" style="margin-bottom:18px;">
+      <table id="status-table">
+        <thead><tr><th>指標</th><th>分層</th><th>最新資料月份</th><th>原始值</th><th>Z分數</th><th>狀態</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<footer>
+  巨觀經濟領先指標模型 ｜ 資料來源：FRED ｜ 方法論基於17指標對1998~2022七次歷史市場事件的回測，樣本量小(7次事件)，結論僅供策略推演參考，不構成投資建議，不保證未來重演
+</footer>
+
+<script src="macro_data.js"></script>
+<script src="macro_engine.js"></script>
+<script src="macro_dashboard.js"></script>
+</body>
+</html>
