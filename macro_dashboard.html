@@ -36,16 +36,24 @@
 
     <div class="field" style="border-top:1px solid var(--border);padding-top:14px;">
       <div class="hint">
-        <b>分層方法說明</b><br>
-        Tier1(房市/信用結構層)：房價、房貸利率、新屋開工、建照、NFCI、耐久財新訂單、貿易餘額——歷史上平均提前CPI異常14~23個月。<br>
-        Tier2(信用/情緒/勞動層)：銀行放款標準、VIX、M2、Sahm Rule、初領失業金——平均提前9~13個月。<br>
-        Tier3(即時確認層)：油價、殖利率倒掛——平均提前1~4個月，幾乎跟CPI異常同步。<br>
-        綜合分數 = Tier1異常數×1 + Tier2異常數×1.5 + Tier3異常數×2(越接近確認層權重越高)。銅價、信用價差(Baa-10Y)歷史命中率太低，僅供參考不計入分數。
+        <b>方法說明：兩層架構</b><br>
+        <b>第一層(CAPE估值)</b>：判斷市場現在體質好不好，移動很慢，不負責報時。<br>
+        <b>第二層(17指標3分級)</b>：Tier1房市/信用結構層(房價、房貸利率、新屋開工、建照、NFCI、耐久財新訂單、貿易餘額)平均提前14~23個月；Tier2信用/情緒/勞動層(銀行放款標準、VIX、M2、Sahm Rule、初領失業金、融資保證金餘額)平均提前9~13個月；Tier3即時確認層(油價、殖利率倒掛)平均提前1~4個月。<br>
+        綜合分數 = Tier1異常數×1 + Tier2異常數×1.5 + Tier3異常數×2。銅價、信用價差(Baa-10Y)歷史命中率太低，僅供參考不計入分數。<br>
+        <b>重要提醒</b>：用全部17指標對所有5%以上修正回測過，短期(1-2個月)預警力其實普通——VIX、NFCI這類是恐慌同步指標，常常跟市場底部黏在一起，不是真的提前。這套模型適合回答「未來1-2年該不該提高警覺」，不是「下個月會不會跌」的報時器。
       </div>
     </div>
   </div>
 
   <div id="main">
+    <div class="section-title" style="margin-top:0;">第一層：資產體質檢查（CAPE估值，決定要不要認真看下面的訊號）</div>
+    <div class="hint" style="margin-bottom:8px;">這是判斷「現在市場體質好不好」的根本指標：回測過的7次危機，CAPE當時都站在自己145年歷史的前10%（90百分位以上），沒有一次例外。CAPE本身移動很慢，不負責報時，只回答「現在是不是處在歷史上少見的高估值區間，一旦有事，會跌得比較重」。2023年9月之後是用企業利潤成長率推估，不是官方數字，僅供參考。</div>
+    <div class="cards" id="cape-cards"></div>
+    <div class="chart-wrap">
+      <canvas id="chart-cape" style="max-height:260px;"></canvas>
+    </div>
+
+    <div class="section-title">第二層：時機觸發訊號（17個指標，3層分級）</div>
     <div id="warning-area"></div>
     <div class="cards" id="tier-cards"></div>
 

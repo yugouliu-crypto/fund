@@ -127,3 +127,18 @@ function drawdownSeries(pairs, startMonth, endMonth) {
   });
   return full.filter(([m]) => (!startMonth || m >= startMonth) && (!endMonth || m <= endMonth));
 }
+
+// ---- valuation "regime gate": is CAPE itself, right now, in a historically expensive
+// (top-10%-of-145-years) era? All 7 backtested crises happened while it was. This isn't a
+// timing signal (CAPE moves slowly) - it answers "is the market structurally fragile right
+// now", as a precondition for whether the faster Tier1/2/3 signals matter much if they fire.
+function capeStatus() {
+  const pairs = MACRO_DATA.cape;
+  const values = pairs.map(p => p[1]);
+  const last = pairs[pairs.length - 1];
+  const sorted = [...values].sort((a, b) => a - b);
+  const pctile = sorted.filter(v => v < last[1]).length / sorted.length * 100;
+  const p90 = sorted[Math.floor(sorted.length * 0.9)];
+  const isEstimated = MACRO_DATA.capeEstimateFrom && last[0] >= MACRO_DATA.capeEstimateFrom;
+  return { month: last[0], cape: last[1], percentile: pctile, threshold90: p90, elevated: last[1] > p90, isEstimated };
+}

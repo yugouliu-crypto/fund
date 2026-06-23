@@ -1,6 +1,45 @@
 let mainChart = null;
+let capeChart = null;
 const TIER_SERIES = buildTierSeries();
 const TIER_BY_MONTH = new Map(TIER_SERIES.map(r => [r.month, r]));
+
+function renderCapeCards() {
+  const s = capeStatus();
+  const cards = [
+    { label: "目前CAPE(本益比，經週期調整)", value: fmtNum(s.cape, 1), sub: s.isEstimated ? `估算值(${s.month}，2023-09後用企業利潤推估)` : `官方資料(${s.month})`, cls: "" },
+    { label: "145年歷史百分位", value: fmtNum(s.percentile, 0) + "%", sub: s.elevated ? "在歷史前10%最貴區間內" : "不在歷史前10%最貴區間", cls: s.elevated ? "neg" : "pos" },
+    { label: "90百分位門檻值(歷史前10%最貴的分界)", value: fmtNum(s.threshold90, 1), sub: "回測過的7次危機，發生時CAPE都超過這個門檻", cls: "" },
+    { label: "資產體質判定", value: s.elevated ? "偏脆弱" : "相對健康", sub: s.elevated ? "歷史上所有7次危機都在這個區間發生，後面的訊號要認真看" : "歷史上7次危機都沒有在這個區間發生過", cls: s.elevated ? "neg" : "pos" },
+  ];
+  document.getElementById("cape-cards").innerHTML = cards.map(c => `
+    <div class="card"><div class="label">${c.label}</div><div class="value">${c.value}</div><div class="sub ${c.cls}">${c.sub}</div></div>
+  `).join("");
+}
+
+function renderCapeChart() {
+  const pairs = MACRO_DATA.cape;
+  const s = capeStatus();
+  const ctx = document.getElementById("chart-cape").getContext("2d");
+  if (capeChart) capeChart.destroy();
+  capeChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: pairs.map(p => p[0]),
+      datasets: [
+        { label: "CAPE(經週期調整本益比)", data: pairs.map(p => p[1]), borderColor: "#c084fc", backgroundColor: "transparent", tension: 0.1, pointRadius: 0 },
+        { label: "90百分位門檻(歷史前10%最貴)", data: pairs.map(() => s.threshold90), borderColor: "#ff6b6b", borderDash: [6, 4], pointRadius: 0, backgroundColor: "transparent" },
+      ],
+    },
+    options: {
+      responsive: true, interaction: { mode: "index", intersect: false },
+      scales: {
+        x: { ticks: { color: "#93a3b0", maxTicksLimit: 15 }, grid: { color: "#2e3a44" } },
+        y: { ticks: { color: "#93a3b0" }, grid: { color: "#2e3a44" } },
+      },
+      plugins: { legend: { labels: { color: "#e8edf2" } } },
+    },
+  });
+}
 
 function fmtNum(n, digits = 2) { return n == null || isNaN(n) ? "-" : n.toFixed(digits); }
 
@@ -125,6 +164,8 @@ function renderStatusTable() {
 }
 
 function render() {
+  renderCapeCards();
+  renderCapeChart();
   renderTierCards();
   renderMainChart();
   renderEventTable();
